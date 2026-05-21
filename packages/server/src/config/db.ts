@@ -7,3 +7,8 @@ const pool = new Pool({
 });
 
 export const db = drizzle(pool);
+
+export async function connectDb(): Promise<void> {
+  await pool.query("SELECT 1");
+  console.log("Database connected");
+}
