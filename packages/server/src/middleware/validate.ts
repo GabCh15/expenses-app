@@ -37,6 +37,6 @@ function formatZodError(error: ZodError): Error {
   }));
 
   const err = badRequest("Validation failed");
-  (err as Error & { errors: typeof fieldErrors }).errors = fieldErrors;
+  (err as unknown as Error & { errors: typeof fieldErrors }).errors = fieldErrors;
   return err;
 }
