@@ -20,6 +20,32 @@ function setRefreshCookie(res: Response, token: string): void {
   });
 }
 
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string, minLength: 6 }
+ *               displayName: { type: string }
+ *     responses:
+ *       201:
+ *         description: User created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Validation error
+ */
 router.post(
   "/register",
   validate(registerSchema),
@@ -33,6 +59,35 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Login with email and password
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email: { type: string, format: email }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 accessToken: { type: string }
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Invalid credentials
+ */
 router.post(
   "/login",
   validate(loginSchema),
@@ -47,6 +102,24 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: New access token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 accessToken: { type: string }
+ *       401:
+ *         description: Refresh token missing or invalid
+ */
 router.post(
   "/refresh",
   async (req: Request, res: Response, next: NextFunction) => {
@@ -64,10 +137,37 @@ router.post(
   }
 );
 
+/**
+ * @swagger
+ * /auth/github:
+ *   get:
+ *     summary: Redirect to GitHub OAuth
+ *     tags: [Auth]
+ *     responses:
+ *       302:
+ *         description: Redirect to GitHub
+ */
 router.get("/github", (_req: Request, res: Response) => {
   res.redirect(getGitHubAuthURL());
 });
 
+/**
+ * @swagger
+ * /auth/github/callback:
+ *   get:
+ *     summary: GitHub OAuth callback
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema: { type: string }
+ *         required: true
+ *     responses:
+ *       302:
+ *         description: Redirect to frontend with access token
+ *       400:
+ *         description: Missing authorization code
+ */
 router.get(
   "/github/callback",
   async (req: Request, res: Response, next: NextFunction) => {
@@ -93,6 +193,24 @@ router.get(
   }
 );
 
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get current authenticated user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ */
 router.get(
   "/me",
   authMiddleware,

@@ -122,7 +122,7 @@ export function BarChart({
               {data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.total > 0 ? "#6366f1" : "#e2e8f0"}
+                  fill={entry.total > 0 ? "hsl(var(--primary))" : "hsl(var(--muted))"}
                   className="cursor-pointer"
                 />
               ))}
