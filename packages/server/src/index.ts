@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createApp } from "./app.js";
 import { connectDb } from "./config/db.js";
 import { env } from "./config/env.js";
