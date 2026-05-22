@@ -84,6 +84,7 @@ export function useCurrentUser() {
         email: string;
         displayName: string;
         currency: string;
+        telegramLinked: boolean;
       }>("/users/me");
     },
     retry: false,
