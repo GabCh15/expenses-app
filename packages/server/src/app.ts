@@ -4,6 +4,8 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/error-handler.js";
 import authRoutes from "./modules/auth/routes.js";
+import categoryRoutes from "./modules/categories/routes.js";
+import expenseRoutes from "./modules/expenses/routes.js";
 
 export function createApp(): express.Application {
   const app = express();
@@ -25,10 +27,10 @@ export function createApp(): express.Application {
   });
 
   app.use("/api/auth", authRoutes);
+  app.use("/api/categories", categoryRoutes);
+  app.use("/api/expenses", expenseRoutes);
 
   // Route placeholders — modules will mount here in later PRs
-  // app.use("/api/expenses", expenseRoutes);
-  // app.use("/api/categories", categoryRoutes);
   // app.use("/api/users", userRoutes);
 
   app.use(errorHandler);
