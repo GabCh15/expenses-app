@@ -149,3 +149,10 @@ export function errorMessage(): string {
 export function notFoundMessage(): string {
   return "Expense not found.";
 }
+
+export function missingCurrencyHelp(): string {
+  return (
+    `Could not detect currency. Try: /add amount category USD` +
+    ` (or COP, EUR)`
+  );
+}

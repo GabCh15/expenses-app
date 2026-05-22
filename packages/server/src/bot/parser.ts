@@ -152,6 +152,14 @@ function matchCategory(
  * Tier 1: Structured format.
  * Pattern: `<amount> <category> [description]`
  */
+function detectCurrency(input: string): string | null {
+  const lower = input.toLowerCase();
+  if (lower.includes("usd") || lower.includes("$")) return "USD";
+  if (lower.includes("cop")) return "COP";
+  if (lower.includes("eur") || lower.includes("€")) return "EUR";
+  return null;
+}
+
 export function parseExpense(
   input: string,
   categories: CategoryLike[]
@@ -166,8 +174,10 @@ export function parseExpense(
   if (Number.isNaN(amount)) return null;
 
   const rest = match[2].trim();
+  const currency = detectCurrency(rest);
+
   if (!rest) {
-    return { amount, categoryId: null, description: null };
+    return { amount, categoryId: null, description: null, currency };
   }
 
   const words = rest.split(/\s+/);
@@ -178,12 +188,12 @@ export function parseExpense(
     const cat = matchCategory(candidate, categories);
     if (cat) {
       const description = words.slice(len).join(" ") || null;
-      return { amount, categoryId: cat.id, description };
+      return { amount, categoryId: cat.id, description, currency };
     }
   }
 
   // No category matched; treat the rest as description
-  return { amount, categoryId: null, description: rest };
+  return { amount, categoryId: null, description: rest, currency };
 }
 
 /**
@@ -243,12 +253,15 @@ export function parseFreeForm(
     if (categoryId) break;
   }
 
-  return { amount, categoryId, description: trimmed };
+  const currency = detectCurrency(trimmed);
+
+  return { amount, categoryId, description: trimmed, currency };
 }
 
 /**
  * Tier 3: LLM fallback (stub).
  * TODO: Integrate OpenRouter when API key is available.
+ * Should return amount, categoryId, description, and currency.
  */
 export async function parseWithLLM(
   _input: string,

@@ -72,6 +72,7 @@ export const expenses = pgTable(
     description: text("description"),
     expenseDate: date("expense_date").notNull().defaultNow(),
     source: sourceEnum("source").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

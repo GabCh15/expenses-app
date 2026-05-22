@@ -17,6 +17,7 @@ export interface Expense {
   description: string | null;
   expenseDate: string;
   source: "web" | "telegram";
+  currency: "USD" | "COP" | "EUR";
   createdAt: Date;
   updatedAt: Date;
   category: {
@@ -74,6 +75,7 @@ export interface ExpenseRepository {
     description?: string;
     expenseDate: Date;
     source: "web" | "telegram";
+    currency: "USD" | "COP" | "EUR";
   }): Promise<Expense>;
   findMany(
     userId: string,

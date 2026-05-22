@@ -29,6 +29,7 @@ function mapExpenseRow(
     description: string | null;
     expenseDate: Date | string;
     source: "web" | "telegram";
+    currency: "USD" | "COP" | "EUR";
     createdAt: Date;
     updatedAt: Date;
     categoryId_joined: string | null;
@@ -45,6 +46,7 @@ function mapExpenseRow(
     description: row.description,
     expenseDate: normalizeDate(row.expenseDate),
     source: row.source,
+    currency: row.currency,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     category: row.categoryId_joined
@@ -66,6 +68,7 @@ const expenseSelectColumns = {
   description: expenses.description,
   expenseDate: expenses.expenseDate,
   source: expenses.source,
+  currency: expenses.currency,
   createdAt: expenses.createdAt,
   updatedAt: expenses.updatedAt,
   categoryId_joined: categories.id,
@@ -87,6 +90,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
         description: data.description ?? null,
         expenseDate: data.expenseDate,
         source: data.source,
+        currency: data.currency,
       })
       .returning();
 

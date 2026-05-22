@@ -19,7 +19,7 @@ async function handleAdd(ctx: BotContext) {
 
   const argsText = text.split(/\s+/).slice(1).join(" ");
   if (!argsText) {
-    await ctx.reply("Usage: /add <amount> <category> [description]");
+    await ctx.reply("Usage: /add <amount> <category> [description] [USD|COP|EUR]");
     return;
   }
 
@@ -38,8 +38,13 @@ async function handleAdd(ctx: BotContext) {
 
     if (!parsed) {
       await ctx.reply(
-        "I couldn't understand the amount. Example: /add 250 groceries lunch"
+        "I couldn't understand the amount. Example: /add 250 groceries lunch USD"
       );
+      return;
+    }
+
+    if (parsed.currency === null) {
+      await ctx.reply(messages.missingCurrencyHelp());
       return;
     }
 
@@ -63,6 +68,7 @@ async function handleAdd(ctx: BotContext) {
         categoryId,
         description: parsed.description ?? undefined,
         expenseDate: new Date().toISOString(),
+        currency: parsed.currency as "USD" | "COP" | "EUR",
       },
       "telegram"
     );
@@ -436,8 +442,13 @@ export function registerCommands(bot: Telegraf<BotContext>) {
 
       if (!parsed) {
         await ctx.reply(
-          'I couldn\'t understand that. Try /help for examples, or send "add <amount> <category> [description]".'
+          'I couldn\'t understand that. Try /help for examples, or send "add <amount> <category> [description] [USD|COP|EUR]".'
         );
+        return;
+      }
+
+      if (parsed.currency === null) {
+        await ctx.reply(messages.missingCurrencyHelp());
         return;
       }
 
@@ -461,6 +472,7 @@ export function registerCommands(bot: Telegraf<BotContext>) {
           categoryId,
           description: parsed.description ?? undefined,
           expenseDate: new Date().toISOString(),
+          currency: parsed.currency as "USD" | "COP" | "EUR",
         },
         "telegram"
       );
