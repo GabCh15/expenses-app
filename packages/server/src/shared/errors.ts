@@ -24,3 +24,6 @@ export const conflict = (message = "Conflict"): AppError =>
 
 export const badRequest = (message = "Bad request"): AppError =>
   new AppError(400, message, "BAD_REQUEST");
+
+export const tooManyRequests = (message = "Too many requests"): AppError =>
+  new AppError(429, message, "TOO_MANY_REQUESTS");

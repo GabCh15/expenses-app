@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, SQL } from "drizzle-orm";
+import { eq, and, asc, desc, gte, lte, SQL } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { expenses, categories } from "../../db/schema.js";
