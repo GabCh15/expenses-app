@@ -2,8 +2,11 @@ import { z } from "zod";
 import dotenv from "dotenv";
 import path from "path";
 
-// Load .env from project root (monorepo root)
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+// Load .env from project root (two levels up from packages/server)
+const envPath = path.resolve(process.cwd(), "../../.env");
+const result = dotenv.config({ path: envPath });
+console.log("Loading .env from:", envPath);
+console.log(".env loaded:", !result.error, result.error ? result.error.message : "");
 
 const envSchema = z.object({
   PORT: z.string().default("3000"),

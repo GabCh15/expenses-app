@@ -36,6 +36,8 @@ export async function startBot(): Promise<void> {
     }
   });
 
-  await bot.launch();
+  bot.launch().then(() => {
+    console.log("Bot stopped");
+  });
   console.log("Bot started (long-polling)");
 }
