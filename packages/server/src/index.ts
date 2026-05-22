@@ -8,7 +8,10 @@ const PORT = parseInt(env.PORT, 10);
 
 async function main() {
   await connectDb();
-  await startBot();
+  // Bot startup: runs in background, does not block Express
+  startBot().catch((err) => {
+    console.warn("Bot failed to start:", err?.message ?? err);
+  });
 
   const app = createApp();
 
