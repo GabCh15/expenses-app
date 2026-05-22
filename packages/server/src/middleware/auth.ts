@@ -14,6 +14,9 @@ declare global {
   }
 }
 
+const ISSUER = "gasto";
+const AUDIENCE = "gasto-api";
+
 export function authMiddleware(
   req: Request,
   _res: Response,
@@ -29,12 +32,16 @@ export function authMiddleware(
   const token = authHeader.slice(7);
 
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as {
-      userId: string;
+    const payload = jwt.verify(token, env.JWT_SECRET, {
+      algorithms: ["HS256"],
+      issuer: ISSUER,
+      audience: AUDIENCE,
+    }) as {
+      sub: string;
       email: string;
     };
 
-    req.user = { userId: payload.userId, email: payload.email };
+    req.user = { userId: payload.sub, email: payload.email };
     next();
   } catch {
     next(unauthorized("Invalid or expired token"));

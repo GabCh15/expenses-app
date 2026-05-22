@@ -13,6 +13,7 @@ import {
   uniqueIndex,
   pgEnum,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const sourceEnum = pgEnum("source", ["web", "telegram"]);
 
@@ -53,7 +54,7 @@ export const categories = pgTable(
     ),
     userNameUnique: uniqueIndex("categories_user_name_unique")
       .on(table.userId, table.name)
-      .where(table.isDeleted.eq(false)),
+      .where(sql`${table.isDeleted} = false`),
   })
 );
 
