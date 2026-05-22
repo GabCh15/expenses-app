@@ -18,7 +18,11 @@ export class ExpenseService {
     private categoryRepo: CategoryRepository
   ) {}
 
-  async create(userId: string, dto: CreateExpenseInput): Promise<Expense> {
+  async create(
+    userId: string,
+    dto: CreateExpenseInput,
+    source: "web" | "telegram" = "web"
+  ): Promise<Expense> {
     const category = await this.categoryRepo.findById(dto.categoryId);
     if (!category || category.userId !== userId) {
       throw notFound("Category not found");
@@ -30,7 +34,7 @@ export class ExpenseService {
       amount: dto.amount,
       description: dto.description,
       expenseDate: new Date(dto.expenseDate),
-      source: "web",
+      source,
     });
   }
 

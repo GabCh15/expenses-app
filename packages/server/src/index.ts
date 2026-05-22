@@ -1,11 +1,13 @@
 import { createApp } from "./app.js";
 import { connectDb } from "./config/db.js";
 import { env } from "./config/env.js";
+import { startBot } from "./bot/index.js";
 
 const PORT = parseInt(env.PORT, 10);
 
 async function main() {
   await connectDb();
+  await startBot();
 
   const app = createApp();
 
