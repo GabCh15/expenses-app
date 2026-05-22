@@ -115,15 +115,15 @@ export function LineChart({ days, isLoading, isError, onRetry }: LineChartProps)
             <Area
               type="monotone"
               dataKey="cumulative"
-              stroke="#6366f1"
-              fill="#6366f1"
+              stroke="hsl(var(--primary))"
+              fill="hsl(var(--primary))"
               fillOpacity={0.1}
               strokeWidth={2}
             />
             <Line
               type="monotone"
               dataKey="cumulative"
-              stroke="#6366f1"
+              stroke="hsl(var(--primary))"
               strokeWidth={2}
               dot={false}
               activeDot={{ r: 4 }}
@@ -136,7 +136,7 @@ export function LineChart({ days, isLoading, isError, onRetry }: LineChartProps)
                   x={d.day}
                   y={d.cumulative}
                   r={3}
-                  fill="#f43f5e"
+                  fill="hsl(var(--destructive))"
                   stroke="none"
                 />
               ))}

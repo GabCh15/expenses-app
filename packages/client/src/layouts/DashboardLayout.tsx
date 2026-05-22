@@ -15,7 +15,7 @@ import {
   User,
 } from "lucide-react";
 import { useUIStore } from "@/stores/ui";
-import { useThemeStore } from "@/stores/theme";
+import { useTheme } from "next-themes";
 import { useAuthStore } from "@/stores/auth";
 import { cn } from "@/lib/utils";
 import {
@@ -82,8 +82,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DashboardLayout() {
   const { sidebarOpen, setSidebarOpen } = useUIStore();
-  const { toggleTheme, resolvedTheme } = useThemeStore();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const { user, logout } = useAuthStore();
+
+  const toggleTheme = () => {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("system");
+    else setTheme("light");
+  };
 
   return (
     <div className="min-h-screen bg-background">
