@@ -79,9 +79,12 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: ["currentUser"],
     queryFn: async () => {
-      return apiFetch<{ id: string; email: string; displayName: string }>(
-        "/users/me"
-      );
+      return apiFetch<{
+        id: string;
+        email: string;
+        displayName: string;
+        currency: string;
+      }>("/users/me");
     },
     retry: false,
     refetchOnWindowFocus: false,
