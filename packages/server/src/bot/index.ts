@@ -25,8 +25,15 @@ export async function startBot(): Promise<void> {
 
   registerCommands(bot);
 
-  bot.catch((err) => {
+  bot.catch(async (err) => {
     console.error("Bot error:", err);
+    // Graceful handling for Telegram rate limits (429)
+    const anyErr = err as any;
+    if (anyErr?.response?.error_code === 429) {
+      const retryAfter = (anyErr.response.parameters?.retry_after ?? 5) * 1000;
+      console.warn(`Telegram rate limit hit. Sleeping ${retryAfter}ms...`);
+      await new Promise((res) => setTimeout(res, retryAfter));
+    }
   });
 
   await bot.launch();
