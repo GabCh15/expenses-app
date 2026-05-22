@@ -9,6 +9,7 @@ export const createExpenseSchema = z.object({
     .datetime({ message: "Invalid ISO date" })
     .optional()
     .default(() => new Date().toISOString()),
+  currency: z.enum(["USD", "COP", "EUR"]),
 });
 
 export const updateExpenseSchema = z
@@ -44,6 +45,7 @@ export const expenseResponseSchema = z.object({
   description: z.string().nullable(),
   expenseDate: z.string(), // date returns as string from DB
   source: z.enum(["web", "telegram"]),
+  currency: z.enum(["USD", "COP", "EUR"]),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   category: z

@@ -17,4 +17,5 @@ export interface ParsedExpense {
   amount: number;
   categoryId: string | null;
   description: string | null;
+  currency: string | null;
 }

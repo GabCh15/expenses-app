@@ -10,7 +10,9 @@ export const DEFAULT_CATEGORIES = [
   { name: "Other", color: "#64748b", icon: "📦" },
 ] as const;
 
-export const CURRENCY_DEFAULT = "ARS";
+export const SUPPORTED_CURRENCIES = ["USD", "COP", "EUR"] as const;
+export const CURRENCY_DEFAULT = "USD";
+export type Currency = (typeof SUPPORTED_CURRENCIES)[number];
 
 export const TOKEN_EXPIRY = {
   access: 900, // 15 minutes

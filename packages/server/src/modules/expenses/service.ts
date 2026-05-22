@@ -35,6 +35,7 @@ export class ExpenseService {
       description: dto.description,
       expenseDate: new Date(dto.expenseDate),
       source,
+      currency: dto.currency,
     });
   }
 
