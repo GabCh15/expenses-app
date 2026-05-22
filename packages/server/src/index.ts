@@ -1,17 +1,31 @@
-import express from "express";
-import dotenv from "dotenv";
+import { createApp } from "./app.js";
+import { connectDb } from "./config/db.js";
+import { env } from "./config/env.js";
 
-dotenv.config();
+const PORT = parseInt(env.PORT, 10);
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+async function main() {
+  await connectDb();
 
-app.use(express.json());
+  const app = createApp();
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
-});
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  const shutdown = (signal: string) => {
+    console.log(`Received ${signal}. Shutting down gracefully...`);
+    server.close(() => {
+      console.log("Server closed");
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
+main().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });
