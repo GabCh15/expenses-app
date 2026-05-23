@@ -2,6 +2,7 @@ import { Telegraf } from "telegraf";
 import { BotContext } from "./types.js";
 import { parseExpense, parseFreeForm } from "./parser.js";
 import * as messages from "./messages.js";
+import * as keyboards from "./keyboards.js";
 
 function getMessageText(ctx: BotContext): string | undefined {
   if (ctx.message && "text" in ctx.message) {
@@ -10,7 +11,47 @@ function getMessageText(ctx: BotContext): string | undefined {
   return undefined;
 }
 
-async function handleAdd(ctx: BotContext) {
+function getChatId(ctx: BotContext): string | undefined {
+  const id = ctx.chat?.id ?? ctx.callbackQuery?.message?.chat.id;
+  if (id === undefined) return undefined;
+  return String(id);
+}
+
+async function getOrCreateUser(ctx: BotContext) {
+  const from = ctx.message?.from ?? ctx.callbackQuery?.from;
+  if (!from) throw new Error("No user");
+  return ctx.services.authService.findOrCreateFromTelegram({
+    telegramId: from.id,
+    displayName: from.first_name || "User",
+  });
+}
+
+interface PendingExpense {
+  step: "amount" | "category" | "currency" | "description" | "confirm";
+  amount?: number;
+  categoryId?: string;
+  currency?: string;
+  description?: string;
+}
+
+const pendingExpenses = new Map<string, PendingExpense>();
+
+function clearPending(chatId: string) {
+  pendingExpenses.delete(chatId);
+}
+
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return formatDate(d);
+}
+
+// --- Old text-based add (kept for /gasto alias fallback) ---
+async function handleAddText(ctx: BotContext) {
   const from = ctx.message?.from;
   if (!from) return;
 
@@ -24,10 +65,7 @@ async function handleAdd(ctx: BotContext) {
   }
 
   try {
-    const user = await ctx.services.authService.findOrCreateFromTelegram({
-      telegramId: from.id,
-      displayName: from.first_name || "User",
-    });
+    const user = await getOrCreateUser(ctx);
 
     const categories = await ctx.services.categoryService.list(user.id);
     let parsed = parseExpense(argsText, categories);
@@ -79,6 +117,75 @@ async function handleAdd(ctx: BotContext) {
   }
 }
 
+// --- Step-by-step add flow ---
+async function startAddFlow(ctx: BotContext) {
+  const chatId = getChatId(ctx);
+  if (!chatId) return;
+  clearPending(chatId);
+  pendingExpenses.set(chatId, { step: "amount" });
+  await ctx.reply(messages.enterAmount(), keyboards.mainMenuKeyboard);
+}
+
+async function handlePendingAmount(ctx: BotContext, text: string) {
+  const chatId = getChatId(ctx);
+  if (!chatId) return;
+
+  const amount = parseFloat(text.replace(/,/g, ""));
+  if (Number.isNaN(amount) || amount <= 0) {
+    await ctx.reply("Please enter a valid positive number.");
+    return;
+  }
+
+  try {
+    const user = await getOrCreateUser(ctx);
+    const categories = await ctx.services.categoryService.list(user.id);
+    if (categories.length === 0) {
+      await ctx.services.categoryService.seedDefaults(user.id);
+      categories.push(...(await ctx.services.categoryService.list(user.id)));
+    }
+
+    pendingExpenses.set(chatId, { step: "category", amount });
+    await ctx.reply(
+      messages.selectCategory(),
+      keyboards.categoryKeyboard(
+        categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon ?? "📁" }))
+      )
+    );
+  } catch {
+    await ctx.reply(messages.errorMessage());
+  }
+}
+
+async function handlePendingDescription(ctx: BotContext, text: string) {
+  const chatId = getChatId(ctx);
+  if (!chatId) return;
+
+  const pending = pendingExpenses.get(chatId);
+  if (!pending || pending.step !== "description") return;
+
+  const description = text === "/skip" ? undefined : text;
+  pendingExpenses.set(chatId, { ...pending, step: "confirm", description });
+
+  try {
+    const user = await getOrCreateUser(ctx);
+    const categories = await ctx.services.categoryService.list(user.id);
+    const category = categories.find((c) => c.id === pending.categoryId);
+
+    await ctx.reply(
+      messages.expenseConfirmPreview({
+        amount: pending.amount ?? 0,
+        categoryName: category?.name ?? "Other",
+        currency: pending.currency ?? "USD",
+        description: description || undefined,
+      }),
+      keyboards.confirmKeyboard(chatId)
+    );
+  } catch {
+    await ctx.reply(messages.errorMessage());
+  }
+}
+
+// --- Command registration ---
 export function registerCommands(bot: Telegraf<BotContext>) {
   bot.command("start", async (ctx) => {
     const from = ctx.message?.from;
@@ -95,10 +202,17 @@ export function registerCommands(bot: Telegraf<BotContext>) {
         await ctx.services.categoryService.seedDefaults(user.id);
       }
 
-      await ctx.reply(messages.welcomeMessage(user.displayName));
+      await ctx.reply(
+        messages.welcomeMessage(user.displayName),
+        keyboards.mainMenuKeyboard
+      );
     } catch {
       await ctx.reply(messages.errorMessage());
     }
+  });
+
+  bot.command("menu", async (ctx) => {
+    await ctx.reply(messages.mainMenuText(), keyboards.mainMenuKeyboard);
   });
 
   bot.command("help", async (ctx) => {
@@ -106,11 +220,17 @@ export function registerCommands(bot: Telegraf<BotContext>) {
   });
 
   bot.command("add", async (ctx) => {
-    await handleAdd(ctx);
+    await startAddFlow(ctx);
   });
 
   bot.command("gasto", async (ctx) => {
-    await handleAdd(ctx);
+    await handleAddText(ctx);
+  });
+
+  bot.command("cancel", async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (chatId) clearPending(chatId);
+    await ctx.reply(messages.addCanceled(), keyboards.mainMenuKeyboard);
   });
 
   bot.command("list", async (ctx) => {
@@ -132,13 +252,23 @@ export function registerCommands(bot: Telegraf<BotContext>) {
       const result = await ctx.services.expenseService.list(user.id, {
         page: 1,
         limit,
+        sort: "date_desc",
       });
+
+      if (result.items.length === 0) {
+        await ctx.reply(messages.noExpenses());
+        return;
+      }
 
       const total = result.items.reduce(
         (sum, e) => sum + parseFloat(e.amount),
         0
       );
       await ctx.reply(messages.expenseList(result.items, total));
+      await ctx.reply(
+        "Tap to delete an expense:",
+        keyboards.listDeleteKeyboard(result.items)
+      );
     } catch {
       await ctx.reply(messages.errorMessage());
     }
@@ -154,7 +284,7 @@ export function registerCommands(bot: Telegraf<BotContext>) {
         displayName: from.first_name || "User",
       });
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = formatDate(new Date());
       const stats = await ctx.services.expenseService.getDailyStats(
         user.id,
         today
@@ -163,11 +293,15 @@ export function registerCommands(bot: Telegraf<BotContext>) {
       const listResult = await ctx.services.expenseService.list(user.id, {
         page: 1,
         limit: 100,
+        sort: "date_desc",
         from: `${today}T00:00:00.000Z`,
         to: `${today}T23:59:59.999Z`,
       });
 
-      await ctx.reply(messages.dailySummary(stats, listResult.items));
+      await ctx.reply(
+        messages.dailySummary(stats, listResult.items),
+        keyboards.todayNavKeyboard(today)
+      );
     } catch {
       await ctx.reply(messages.errorMessage());
     }
@@ -418,12 +552,225 @@ export function registerCommands(bot: Telegraf<BotContext>) {
       }
     }
   });
+}
 
-  // Natural language fallback for non-command text messages
+// --- Callback query handlers ---
+export function registerActions(bot: Telegraf<BotContext>) {
+  bot.action(/cat_(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+
+    const pending = pendingExpenses.get(chatId);
+    if (!pending || pending.step !== "category") {
+      await ctx.answerCbQuery("No active add flow.");
+      return;
+    }
+
+    const categoryId = ctx.match[1];
+    pendingExpenses.set(chatId, { ...pending, step: "currency", categoryId });
+
+    await ctx.answerCbQuery("Category selected");
+    await ctx.editMessageReplyMarkup(undefined); // remove category keyboard
+    await ctx.reply(
+      messages.selectCurrency(),
+      keyboards.currencyKeyboard
+    );
+  });
+
+  bot.action(/cur_(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+
+    const pending = pendingExpenses.get(chatId);
+    if (!pending || pending.step !== "currency") {
+      await ctx.answerCbQuery("No active add flow.");
+      return;
+    }
+
+    const currency = ctx.match[1];
+    pendingExpenses.set(chatId, {
+      ...pending,
+      step: "description",
+      currency,
+    });
+
+    await ctx.answerCbQuery("Currency selected");
+    await ctx.editMessageReplyMarkup(undefined); // remove currency keyboard
+    await ctx.reply(messages.enterDescription());
+  });
+
+  bot.action(/confirm_(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+
+    const pending = pendingExpenses.get(chatId);
+    if (!pending || pending.step !== "confirm") {
+      await ctx.answerCbQuery("Nothing to confirm.");
+      return;
+    }
+
+    try {
+      const user = await getOrCreateUser(ctx);
+
+      const expense = await ctx.services.expenseService.create(
+        user.id,
+        {
+          amount: pending.amount ?? 0,
+          categoryId: pending.categoryId ?? "",
+          description: pending.description ?? undefined,
+          expenseDate: new Date().toISOString(),
+          currency: (pending.currency ?? "USD") as "USD" | "COP" | "EUR",
+        },
+        "telegram"
+      );
+
+      clearPending(chatId);
+      await ctx.answerCbQuery("Expense saved!");
+      await ctx.editMessageReplyMarkup(undefined);
+      await ctx.reply(messages.expenseSaved());
+      await ctx.reply(messages.expenseCreated(expense), keyboards.mainMenuKeyboard);
+    } catch {
+      await ctx.answerCbQuery("Error saving expense.");
+      await ctx.reply(messages.errorMessage());
+    }
+  });
+
+  bot.action(/cancel_(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (chatId) clearPending(chatId);
+    await ctx.answerCbQuery("Canceled");
+    try {
+      await ctx.editMessageReplyMarkup(undefined);
+    } catch {
+      // ignore if message can't be edited
+    }
+    await ctx.reply(messages.addCanceled(), keyboards.mainMenuKeyboard);
+  });
+
+  bot.action(/delete_(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+
+    const expenseId = ctx.match[1];
+
+    try {
+      const user = await getOrCreateUser(ctx);
+      const expense = await ctx.services.expenseService.getById(user.id, expenseId);
+      await ctx.services.expenseService.delete(user.id, expenseId);
+      await ctx.answerCbQuery("Deleted");
+      await ctx.editMessageReplyMarkup(undefined);
+      await ctx.reply(
+        messages.expenseDeleted(expenseId) +
+          `\nDeleted: $${expense.amount} in ${expense.category?.name ?? "Other"}`
+      );
+    } catch (err: any) {
+      if (err?.message?.includes("not found")) {
+        await ctx.answerCbQuery("Expense not found.");
+        await ctx.reply(messages.notFoundMessage());
+      } else {
+        await ctx.answerCbQuery("Error deleting expense.");
+        await ctx.reply(messages.errorMessage());
+      }
+    }
+  });
+
+  bot.action(/keep_(.+)/, async (ctx) => {
+    await ctx.answerCbQuery("Kept");
+    await ctx.editMessageReplyMarkup(undefined);
+    await ctx.reply(messages.keepExpense(), keyboards.mainMenuKeyboard);
+  });
+
+  bot.action(/askdelete_(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+
+    const expenseId = ctx.match[1];
+
+    try {
+      const user = await getOrCreateUser(ctx);
+      const expense = await ctx.services.expenseService.getById(user.id, expenseId);
+      await ctx.answerCbQuery();
+      await ctx.editMessageReplyMarkup(undefined);
+      await ctx.reply(
+        messages.deleteConfirmation(expense),
+        keyboards.deleteConfirmKeyboard(expenseId)
+      );
+    } catch (err: any) {
+      if (err?.message?.includes("not found")) {
+        await ctx.answerCbQuery("Expense not found.");
+        await ctx.reply(messages.notFoundMessage());
+      } else {
+        await ctx.answerCbQuery("Error");
+        await ctx.reply(messages.errorMessage());
+      }
+    }
+  });
+
+  bot.action(/day_(prev|today|next)_(.+)/, async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (!chatId) return;
+
+    const direction = ctx.match[1];
+    const baseDate = ctx.match[2];
+
+    let targetDate: string;
+    if (direction === "today") {
+      targetDate = formatDate(new Date());
+    } else if (direction === "prev") {
+      targetDate = addDays(baseDate, -1);
+    } else {
+      targetDate = addDays(baseDate, 1);
+    }
+
+    try {
+      const user = await getOrCreateUser(ctx);
+      const stats = await ctx.services.expenseService.getDailyStats(
+        user.id,
+        targetDate
+      );
+
+      const listResult = await ctx.services.expenseService.list(user.id, {
+        page: 1,
+        limit: 100,
+        sort: "date_desc",
+        from: `${targetDate}T00:00:00.000Z`,
+        to: `${targetDate}T23:59:59.999Z`,
+      });
+
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(
+        messages.dailySummary(stats, listResult.items),
+        keyboards.todayNavKeyboard(targetDate)
+      );
+    } catch {
+      await ctx.answerCbQuery("Error loading stats.");
+      await ctx.reply(messages.errorMessage());
+    }
+  });
+
+  // --- Natural language fallback ---
   bot.on("message", async (ctx) => {
     if (!ctx.message || !("text" in ctx.message)) return;
     const text = ctx.message.text;
     if (!text || text.startsWith("/")) return;
+
+    const chatId = getChatId(ctx);
+    if (chatId) {
+      const pending = pendingExpenses.get(chatId);
+      if (pending) {
+        if (pending.step === "amount") {
+          await handlePendingAmount(ctx, text);
+          return;
+        }
+        if (pending.step === "description") {
+          await handlePendingDescription(ctx, text);
+          return;
+        }
+        // Other steps are handled by callbacks
+        await ctx.reply("Please use the buttons or /cancel to abort.");
+        return;
+      }
+    }
 
     const from = ctx.message.from;
     if (!from) return;
