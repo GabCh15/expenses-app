@@ -156,3 +156,58 @@ export function missingCurrencyHelp(): string {
     ` (or COP, EUR)`
   );
 }
+
+export function enterAmount(): string {
+  return "💰 Enter the amount:";
+}
+
+export function selectCategory(): string {
+  return "📂 Select a category:";
+}
+
+export function selectCurrency(): string {
+  return "💱 Select currency:";
+}
+
+export function enterDescription(): string {
+  return "📝 Enter a description (or /skip):";
+}
+
+export function addCanceled(): string {
+  return "❌ Add canceled.";
+}
+
+export function expenseDeleted(id: string): string {
+  return `🗑️ Expense ${id} deleted.`;
+}
+
+export function expenseConfirmPreview(data: {
+  amount: number;
+  categoryName: string;
+  currency: string;
+  description?: string;
+}): string {
+  const desc = data.description ? `\nDescription: ${data.description}` : "";
+  return (
+    `Please confirm your expense:\n\n` +
+    `Amount: ${data.amount}\n` +
+    `Category: ${data.categoryName}\n` +
+    `Currency: ${data.currency}${desc}`
+  );
+}
+
+export function expenseSaved(): string {
+  return "✅ Expense saved!";
+}
+
+export function keepExpense(): string {
+  return "👍 Expense kept.";
+}
+
+export function mainMenuText(): string {
+  return "What would you like to do?";
+}
+
+export function noExpenses(): string {
+  return "You have no expenses yet.";
+}
