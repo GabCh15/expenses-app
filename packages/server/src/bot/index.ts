@@ -2,7 +2,7 @@ import { Telegraf } from "telegraf";
 import { env } from "../config/env.js";
 import { BotContext } from "./types.js";
 import { authService, expenseService, categoryService, linkService } from "./services.js";
-import { registerCommands } from "./commands.js";
+import { registerCommands, registerActions } from "./commands.js";
 
 export async function startBot(): Promise<void> {
   const token = env.TELEGRAM_BOT_TOKEN;
@@ -24,6 +24,7 @@ export async function startBot(): Promise<void> {
   });
 
   registerCommands(bot);
+  registerActions(bot);
 
   bot.catch(async (err) => {
     console.error("Bot error:", err);
