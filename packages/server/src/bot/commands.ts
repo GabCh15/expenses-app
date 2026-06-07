@@ -2,6 +2,7 @@ import { Telegraf } from "telegraf";
 import { BotContext } from "./types.js";
 import { parseWithLLM } from "./llm.js";
 import type { MonthlyStats } from "../modules/expenses/types.js";
+import { today } from "../shared/date.js";
 import * as messages from "./messages.js";
 import * as keyboards from "./keyboards.js";
 import { buildCalendarKeyboard, dayDetailKeyboard } from "./keyboards.js";
@@ -44,16 +45,6 @@ function clearPending(chatId: string) {
 
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
-}
-
-// Today's date in local timezone as YYYY-MM-DD — avoids UTC date-shift
-// when the server runs in a timezone behind UTC (e.g. Colombia UTC-5)
-function todayLocal(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
 }
 
 const MONTH_NAMES = [
@@ -635,6 +626,38 @@ export function registerCommands(bot: Telegraf<BotContext>) {
       }
     }
   });
+
+  bot.command("timezone", async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (chatId) clearPending(chatId);
+
+    const text = getMessageText(ctx);
+    const args = text?.split(/\s+/).slice(1) ?? [];
+
+    try {
+      const user = await getOrCreateUser(ctx);
+
+      if (args.length === 0) {
+        await ctx.reply(messages.timezoneCurrentMessage(user.timezone));
+        return;
+      }
+
+      const tz = args[0];
+
+      // Validate IANA timezone
+      try {
+        new Intl.DateTimeFormat("en", { timeZone: tz }).format(new Date());
+      } catch {
+        await ctx.reply(messages.timezoneInvalidMessage(tz));
+        return;
+      }
+
+      await ctx.services.authService.setTimezone(user.id, tz);
+      await ctx.reply(messages.timezoneSetMessage(tz), keyboards.mainMenuKeyboard);
+    } catch {
+      await ctx.reply(messages.errorMessage());
+    }
+  });
 }
 
 // --- Callback query handlers ---
@@ -739,7 +762,7 @@ export function registerActions(bot: Telegraf<BotContext>) {
           amount: pending.amount ?? 0,
           categoryId: pending.categoryId ?? "",
           description: pending.description ?? undefined,
-          expenseDate: todayLocal(),
+          expenseDate: today(user.timezone),
           currency: (pending.currency ?? "USD") as "USD" | "COP" | "EUR",
         },
         "telegram"
@@ -987,6 +1010,7 @@ export function registerActions(bot: Telegraf<BotContext>) {
         await ctx.reply(messages.settingsInfo({
           displayName: user.displayName,
           telegramLinked: user.telegramLinked,
+          timezone: user.timezone,
         }), keyboards.backToMenuInline);
       } catch {
         await ctx.reply(messages.errorMessage());

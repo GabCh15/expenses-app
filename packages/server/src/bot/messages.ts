@@ -249,11 +249,29 @@ export function noExpenses(): string {
 export function settingsInfo(data: {
   displayName: string;
   telegramLinked: boolean;
+  timezone: string;
 }): string {
   const linked = data.telegramLinked ? "Yes ✅" : "No — use /link to connect";
   return (
     `⚙️ Settings\n\n` +
     `Name: ${data.displayName}\n` +
-    `Web linked: ${linked}`
+    `Web linked: ${linked}\n` +
+    `Timezone: ${data.timezone}`
   );
+}
+
+export function timezoneSetMessage(tz: string): string {
+  return `Timezone set to ${tz}.`;
+}
+
+export function timezoneInvalidMessage(input: string): string {
+  return (
+    `"${input}" is not a valid timezone.\n\n` +
+    `Use IANA timezone names. Examples:\n` +
+    `America/Bogota\nEurope/Madrid\nAmerica/Argentina/Buenos_Aires`
+  );
+}
+
+export function timezoneCurrentMessage(tz: string): string {
+  return `Your timezone is ${tz}.`;
 }

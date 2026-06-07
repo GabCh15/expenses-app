@@ -25,6 +25,7 @@ export const users = pgTable("users", {
   githubId: varchar("github_id", { length: 50 }).unique(),
   telegramId: bigint("telegram_id", { mode: "number" }).unique(),
   currency: varchar("currency", { length: 3 }).default("ARS"),
+  timezone: varchar("timezone", { length: 50 }).default("America/Bogota"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
