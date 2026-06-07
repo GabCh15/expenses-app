@@ -29,9 +29,9 @@ function mapExpenseRow(
     categoryId: string | null;
     amount: string;
     description: string | null;
-    expenseDate: Date | string;
+    expenseDate: string;
     source: "web" | "telegram";
-    currency: "USD" | "COP" | "EUR";
+    currency: string;
     createdAt: Date;
     updatedAt: Date;
     categoryId_joined: string | null;
@@ -48,7 +48,7 @@ function mapExpenseRow(
     description: row.description,
     expenseDate: normalizeDate(row.expenseDate),
     source: row.source,
-    currency: row.currency,
+    currency: row.currency as "USD" | "COP" | "EUR",
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     category: row.categoryId_joined
