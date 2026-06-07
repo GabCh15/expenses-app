@@ -113,10 +113,10 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       conditions.push(eq(expenses.categoryId, filters.categoryId));
     }
     if (filters.from) {
-      conditions.push(gte(expenses.expenseDate, new Date(filters.from)));
+      conditions.push(gte(expenses.expenseDate, filters.from));
     }
     if (filters.to) {
-      conditions.push(lte(expenses.expenseDate, new Date(filters.to)));
+      conditions.push(lte(expenses.expenseDate, filters.to));
     }
 
     const sort = filters.sort ?? "date_desc";
