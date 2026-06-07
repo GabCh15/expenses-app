@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CategoryResponse, ExpenseResponse } from "@gasto/shared";
+import { CategoryResponse, ExpenseResponse } from "@expense/shared";
 
 const formSchema = z.object({
   amount: z.coerce.number().positive("Amount must be positive"),

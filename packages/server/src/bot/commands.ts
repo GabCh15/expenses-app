@@ -109,7 +109,7 @@ async function navigateCalendar(
   );
 }
 
-// --- Old text-based add (kept for /gasto alias fallback) ---
+// --- Old text-based add (kept for /expense alias fallback) ---
 async function handleAddText(ctx: BotContext) {
   const from = ctx.message?.from;
   if (!from) return;
@@ -321,7 +321,7 @@ export function registerCommands(bot: Telegraf<BotContext>) {
     await startAddFlow(ctx);
   });
 
-  bot.command("gasto", async (ctx) => {
+  bot.command("expense", async (ctx) => {
     await handleAddText(ctx);
   });
 

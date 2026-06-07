@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { ExpenseResponse } from "@gasto/shared";
+import { ExpenseResponse } from "@expense/shared";
 import { useUserCurrency } from "@/features/dashboard/hooks";
 import {
   useExpenses,

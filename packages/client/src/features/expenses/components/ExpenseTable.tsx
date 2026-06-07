@@ -7,7 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ExpenseResponse } from "@gasto/shared";
+import { ExpenseResponse } from "@expense/shared";
 import { formatCurrency } from "@/lib/format";
 import { Pencil, Trash2, ArrowUpDown } from "lucide-react";
 

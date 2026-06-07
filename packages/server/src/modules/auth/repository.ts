@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { users, categories } from "../../db/schema.js";
-import { DEFAULT_CATEGORIES } from "@gasto/shared";
+import { DEFAULT_CATEGORIES } from "@expense/shared";
 import { AuthRepository, UserResponse, UserWithPassword } from "./types.js";
 
 function mapUser(user: typeof users.$inferSelect): UserResponse {

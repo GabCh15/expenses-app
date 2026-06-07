@@ -28,7 +28,7 @@ export const useAuthStore = create<AuthState>()(
         set({ accessToken: null, user: null, isAuthenticated: false }),
     }),
     {
-      name: "gasto-auth",
+      name: "expense-auth",
       partialize: (state) => ({
         accessToken: state.accessToken,
         user: state.user,

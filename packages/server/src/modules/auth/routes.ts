@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { registerSchema, loginSchema } from "@gasto/shared";
+import { registerSchema, loginSchema } from "@expense/shared";
 import { validate } from "../../middleware/validate.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { env } from "../../config/env.js";

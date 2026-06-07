@@ -52,7 +52,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex flex-col h-full">
       <div className="p-4">
         <Link to="/" className="flex items-center gap-2" onClick={onNavigate}>
-          <span className="text-xl font-bold">Gasto</span>
+          <span className="text-xl font-bold">Expense</span>
         </Link>
       </div>
       <nav className="flex-1 px-2 space-y-1">
@@ -106,7 +106,7 @@ export function DashboardLayout() {
             <SidebarContent onNavigate={() => setSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
-        <span className="font-semibold">Gasto</span>
+        <span className="font-semibold">Expense</span>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
             {resolvedTheme === "dark" ? (

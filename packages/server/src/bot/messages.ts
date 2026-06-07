@@ -14,7 +14,7 @@ function fmtCurrencies(currencies: CurrencyTotal[]): string {
 
 export function welcomeMessage(displayName: string): string {
   return (
-    `Hello, ${displayName}! Welcome to Gasto.\n\n` +
+    `Hello, ${displayName}! Welcome to Expense.\n\n` +
     `Use the menu below:\n\n` +
     `➕ Add Expense — Log a new expense\n` +
     `📋 Today — Today's summary\n` +
@@ -29,7 +29,7 @@ export function helpMessage(): string {
     `Available commands:\n\n` +
     `/start — Welcome message\n` +
     `/help — This help message\n` +
-    `/add <amount> <category> [description] — Log an expense (alias: /gasto)\n` +
+    `/add <amount> <category> [description] — Log an expense (alias: /expense)\n` +
     `/list [N] — Recent expenses (default 10, max 50)\n` +
     `/today — Today's expenses\n` +
     `/week — Current week breakdown\n` +

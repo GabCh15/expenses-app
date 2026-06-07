@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import { ExpenseResponse } from "@gasto/shared";
+import { ExpenseResponse } from "@expense/shared";
 
 export interface DailyStats {
   date: string;

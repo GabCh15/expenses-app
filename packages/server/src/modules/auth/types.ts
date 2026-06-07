@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { registerSchema, loginSchema } from "@gasto/shared";
+import { registerSchema, loginSchema } from "@expense/shared";
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

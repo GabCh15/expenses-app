@@ -7,7 +7,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ExpenseResponse } from "@gasto/shared";
+import { ExpenseResponse } from "@expense/shared";
 import { formatCurrency } from "@/lib/format";
 import { AlertTriangle } from "lucide-react";
 

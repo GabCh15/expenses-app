@@ -17,7 +17,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@gasto/shared": ["../shared/src"]
+      "@expense/shared": ["../shared/src"]
     }
   },
   "include": ["src"],

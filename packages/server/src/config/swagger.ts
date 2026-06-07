@@ -4,7 +4,7 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Gasto API",
+      title: "Expense API",
       version: "1.0.0",
       description:
         "Personal Expense Tracker API. Supports expense CRUD, category management, user profiles, Telegram bot integration, and reporting.",

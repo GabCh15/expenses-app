@@ -39,7 +39,7 @@ export function createApp(): express.Application {
     swaggerUi.serve,
     swaggerUi.setup(swaggerSpec, {
       explorer: true,
-      customSiteTitle: "Gasto API Documentation",
+      customSiteTitle: "Expense API Documentation",
     })
   );
 

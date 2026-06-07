@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createCategorySchema, updateCategorySchema } from "@gasto/shared";
+import { createCategorySchema, updateCategorySchema } from "@expense/shared";
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;

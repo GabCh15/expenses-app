@@ -1,5 +1,5 @@
 {
-  "name": "gasto",
+  "name": "expense",
   "private": true,
   "version": "1.0.0",
   "description": "Gasto — Personal Expense Tracker with Telegram Bot & Web Dashboard",

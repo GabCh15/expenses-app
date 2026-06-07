@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
-import { CategoryResponse } from "@gasto/shared";
+import { CategoryResponse } from "@expense/shared";
 
 export function useCategories() {
   return useQuery<CategoryResponse[]>({

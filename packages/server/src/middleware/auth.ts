@@ -14,8 +14,8 @@ declare global {
   }
 }
 
-const ISSUER = "gasto";
-const AUDIENCE = "gasto-api";
+const ISSUER = "expense";
+const AUDIENCE = "expense-api";
 
 export function authMiddleware(
   req: Request,

@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { createCategorySchema, updateCategorySchema } from "@gasto/shared";
+import { createCategorySchema, updateCategorySchema } from "@expense/shared";
 import { validate } from "../../middleware/validate.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { CategoryService } from "./service.js";

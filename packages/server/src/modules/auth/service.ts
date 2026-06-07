@@ -13,8 +13,8 @@ import {
   UserResponse,
 } from "./types.js";
 
-const ISSUER = "gasto";
-const AUDIENCE = "gasto-api";
+const ISSUER = "expense";
+const AUDIENCE = "expense-api";
 
 export class AuthService {
   constructor(private repo: AuthRepository) {}

@@ -3,7 +3,7 @@ import {
   createExpenseSchema,
   updateExpenseSchema,
   expenseFiltersSchema,
-} from "@gasto/shared";
+} from "@expense/shared";
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;

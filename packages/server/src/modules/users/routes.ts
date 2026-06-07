@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { updateProfileSchema, linkTokenSchema } from "@gasto/shared";
+import { updateProfileSchema, linkTokenSchema } from "@expense/shared";
 import { validate } from "../../middleware/validate.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { UserService } from "./service.js";

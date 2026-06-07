@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { updateProfileSchema } from "@gasto/shared";
+import { updateProfileSchema } from "@expense/shared";
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

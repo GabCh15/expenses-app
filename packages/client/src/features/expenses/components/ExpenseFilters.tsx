@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CategoryResponse } from "@gasto/shared";
+import { CategoryResponse } from "@expense/shared";
 import { Search, X } from "lucide-react";
 
 export interface ExpenseFilterState {

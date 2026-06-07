@@ -49,14 +49,14 @@ export async function getGitHubUser(
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
-        "User-Agent": "gasto-app",
+        "User-Agent": "expense-app",
       },
     }),
     fetch("https://api.github.com/user/emails", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
-        "User-Agent": "gasto-app",
+        "User-Agent": "expense-app",
       },
     }),
   ]);

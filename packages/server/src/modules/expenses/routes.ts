@@ -3,7 +3,7 @@ import {
   createExpenseSchema,
   updateExpenseSchema,
   expenseFiltersSchema,
-} from "@gasto/shared";
+} from "@expense/shared";
 import { validate, validateQuery } from "../../middleware/validate.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { badRequest } from "../../shared/errors.js";

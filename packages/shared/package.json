@@ -1,5 +1,5 @@
 {
-  "name": "@gasto/shared",
+  "name": "@expense/shared",
   "version": "1.0.0",
   "type": "module",
   "main": "./dist/index.js",
