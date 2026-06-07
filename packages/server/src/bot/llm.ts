@@ -77,8 +77,12 @@ export async function parseWithLLM(
 
     const parsed = JSON.parse(jsonMatch[0]);
 
+    // Robust parse: LLMs sometimes return "7000" (string) instead of 7000 (number)
+    const amount =
+      parsed.amount != null ? Number(parsed.amount) : NaN;
+
     return {
-      amount: typeof parsed.amount === "number" ? parsed.amount : NaN,
+      amount: Number.isFinite(amount) ? amount : NaN,
       categoryId:
         typeof parsed.categoryId === "string" ? parsed.categoryId : null,
       description:
