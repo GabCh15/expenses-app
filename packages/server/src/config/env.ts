@@ -1,16 +1,20 @@
 import { z } from "zod";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 
-// Load .env from project root (two levels up from packages/server)
-const envPath = path.resolve(process.cwd(), "../../.env");
-const result = dotenv.config({ path: envPath });
-console.log("Loading .env from:", envPath);
-console.log(".env loaded:", !result.error, result.error ? result.error.message : "");
+// In development, load .env from project root. In production, Fly.io injects env vars.
+const envFile = path.resolve(process.cwd(), "../../.env");
+if (fs.existsSync(envFile)) {
+  dotenv.config({ path: envFile });
+  console.log(".env loaded from:", envFile);
+} else {
+  console.log("No .env file found — using system environment variables (production mode)");
+}
 
 const envSchema = z.object({
   PORT: z.string().default("3000"),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("production"),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   JWT_REFRESH_SECRET: z.string().min(1, "JWT_REFRESH_SECRET is required"),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
