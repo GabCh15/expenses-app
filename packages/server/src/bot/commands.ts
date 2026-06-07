@@ -1,8 +1,10 @@
 import { Telegraf } from "telegraf";
 import { BotContext } from "./types.js";
-import { parseExpense, parseFreeForm } from "./parser.js";
+import { parseWithLLM } from "./llm.js";
+import type { MonthlyStats } from "../modules/expenses/types.js";
 import * as messages from "./messages.js";
 import * as keyboards from "./keyboards.js";
+import { buildCalendarKeyboard, dayDetailKeyboard } from "./keyboards.js";
 
 function getMessageText(ctx: BotContext): string | undefined {
   if (ctx.message && "text" in ctx.message) {
@@ -44,10 +46,67 @@ function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return formatDate(d);
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function calendarText(year: number, month: number): string {
+  return `📅 ${MONTH_NAMES[month - 1]} ${year}`;
+}
+
+function getActiveDays(stats: MonthlyStats): Set<number> {
+  const active = new Set<number>();
+  for (const day of stats.days) {
+    if (day.count > 0) {
+      const dayNum = parseInt(day.date.split("-")[2], 10);
+      active.add(dayNum);
+    }
+  }
+  return active;
+}
+
+async function showCalendar(ctx: BotContext, date: Date): Promise<void> {
+  const user = await getOrCreateUser(ctx);
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+
+  const stats = await ctx.services.expenseService.getMonthlyStats(
+    user.id,
+    year,
+    month
+  );
+
+  const activeDays = getActiveDays(stats);
+  const todayStr = formatDate(new Date());
+
+  await ctx.reply(
+    calendarText(year, month),
+    buildCalendarKeyboard(year, month, activeDays, todayStr)
+  );
+}
+
+async function navigateCalendar(
+  ctx: BotContext,
+  year: number,
+  month: number
+): Promise<void> {
+  const user = await getOrCreateUser(ctx);
+
+  const stats = await ctx.services.expenseService.getMonthlyStats(
+    user.id,
+    year,
+    month
+  );
+
+  const activeDays = getActiveDays(stats);
+  const todayStr = formatDate(new Date());
+
+  await ctx.answerCbQuery();
+  await ctx.editMessageText(
+    calendarText(year, month),
+    buildCalendarKeyboard(year, month, activeDays, todayStr)
+  );
 }
 
 // --- Old text-based add (kept for /gasto alias fallback) ---
@@ -68,50 +127,25 @@ async function handleAddText(ctx: BotContext) {
     const user = await getOrCreateUser(ctx);
 
     const categories = await ctx.services.categoryService.list(user.id);
-    let parsed = parseExpense(argsText, categories);
-
-    if (!parsed) {
-      parsed = parseFreeForm(argsText, categories);
+    if (categories.length === 0) {
+      await ctx.services.categoryService.seedDefaults(user.id);
+      categories.push(...(await ctx.services.categoryService.list(user.id)));
     }
 
-    if (!parsed) {
+    const parsed = await parseWithLLM(argsText, categories);
+
+    if (!parsed || Number.isNaN(parsed.amount)) {
       await ctx.reply(
-        "I couldn't understand the amount. Example: /add 250 groceries lunch USD"
+        "I couldn't understand the amount. Example: /add 250 groceries lunch"
       );
       return;
     }
 
-    if (parsed.currency === null) {
-      await ctx.reply(messages.missingCurrencyHelp());
-      return;
-    }
-
-    let categoryId = parsed.categoryId;
-    if (!categoryId) {
-      const other = categories.find((c) => c.name.toLowerCase() === "other");
-      categoryId = other?.id ?? categories[0]?.id ?? null;
-    }
-
-    if (!categoryId) {
-      await ctx.reply(
-        "No category available. Please use /categories to set up categories."
-      );
-      return;
-    }
-
-    const expense = await ctx.services.expenseService.create(
-      user.id,
-      {
-        amount: parsed.amount,
-        categoryId,
-        description: parsed.description ?? undefined,
-        expenseDate: new Date().toISOString(),
-        currency: parsed.currency as "USD" | "COP" | "EUR",
-      },
-      "telegram"
+    await startLLMGuidedFlow(
+      ctx,
+      categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon ?? "📁" })),
+      parsed
     );
-
-    await ctx.reply(messages.expenseCreated(expense));
   } catch {
     await ctx.reply(messages.errorMessage());
   }
@@ -123,7 +157,66 @@ async function startAddFlow(ctx: BotContext) {
   if (!chatId) return;
   clearPending(chatId);
   pendingExpenses.set(chatId, { step: "amount" });
-  await ctx.reply(messages.enterAmount(), keyboards.mainMenuKeyboard);
+  await ctx.reply(messages.enterAmount(), keyboards.flowCancelKeyboard);
+}
+
+async function startGuidedAdd(ctx: BotContext, hint: string) {
+  const chatId = getChatId(ctx);
+  if (!chatId) return;
+  clearPending(chatId);
+  pendingExpenses.set(chatId, { step: "amount", description: hint });
+  await ctx.reply(
+    `💰 I understood "${hint}". How much did you spend?\n\nEnter the amount:`,
+    keyboards.flowCancelKeyboard
+  );
+}
+
+async function startLLMGuidedFlow(
+  ctx: BotContext,
+  categories: Array<{ id: string; name: string; icon: string }>,
+  parsed: { amount: number; currency: string | null; categoryId: string | null; description: string | null }
+) {
+  const chatId = getChatId(ctx);
+  if (!chatId) return;
+  clearPending(chatId);
+
+  const pending: PendingExpense = {
+    step: "confirm",
+    amount: parsed.amount,
+    categoryId: parsed.categoryId ?? undefined,
+    currency: parsed.currency ?? undefined,
+    description: parsed.description ?? undefined,
+  };
+
+  // Route to earliest missing field
+  if (!parsed.currency) {
+    pending.step = "currency";
+  } else if (!parsed.categoryId) {
+    pending.step = "category";
+  }
+
+  pendingExpenses.set(chatId, pending);
+
+  if (pending.step === "currency") {
+    await ctx.reply(messages.selectCurrency(), keyboards.currencyKeyboard);
+  } else if (pending.step === "category") {
+    await ctx.reply(
+      messages.selectCategory(),
+      keyboards.categoryKeyboard(categories)
+    );
+  } else {
+    // All fields present — go straight to confirm
+    const category = categories.find((c) => c.id === pending.categoryId);
+    await ctx.reply(
+      messages.expenseConfirmPreview({
+        amount: pending.amount ?? 0,
+        categoryName: category?.name ?? "Other",
+        currency: pending.currency ?? "USD",
+        description: pending.description || undefined,
+      }),
+      keyboards.confirmKeyboard(chatId)
+    );
+  }
 }
 
 async function handlePendingAmount(ctx: BotContext, text: string) {
@@ -144,7 +237,12 @@ async function handlePendingAmount(ctx: BotContext, text: string) {
       categories.push(...(await ctx.services.categoryService.list(user.id)));
     }
 
-    pendingExpenses.set(chatId, { step: "category", amount });
+    const prev = pendingExpenses.get(chatId);
+    pendingExpenses.set(chatId, {
+      step: "category",
+      amount,
+      description: prev?.description,
+    });
     await ctx.reply(
       messages.selectCategory(),
       keyboards.categoryKeyboard(
@@ -275,33 +373,8 @@ export function registerCommands(bot: Telegraf<BotContext>) {
   });
 
   bot.command("today", async (ctx) => {
-    const from = ctx.message?.from;
-    if (!from) return;
-
     try {
-      const user = await ctx.services.authService.findOrCreateFromTelegram({
-        telegramId: from.id,
-        displayName: from.first_name || "User",
-      });
-
-      const today = formatDate(new Date());
-      const stats = await ctx.services.expenseService.getDailyStats(
-        user.id,
-        today
-      );
-
-      const listResult = await ctx.services.expenseService.list(user.id, {
-        page: 1,
-        limit: 100,
-        sort: "date_desc",
-        from: `${today}T00:00:00.000Z`,
-        to: `${today}T23:59:59.999Z`,
-      });
-
-      await ctx.reply(
-        messages.dailySummary(stats, listResult.items),
-        keyboards.todayNavKeyboard(today)
-      );
+      await showCalendar(ctx, new Date());
     } catch {
       await ctx.reply(messages.errorMessage());
     }
@@ -459,7 +532,7 @@ export function registerCommands(bot: Telegraf<BotContext>) {
       const expense = await ctx.services.expenseService.getById(user.id, id);
       await ctx.services.expenseService.delete(user.id, id);
       await ctx.reply(
-        `Deleted: $${expense.amount} in ${expense.category?.name ?? "Other"}`
+        `Deleted: ${expense.currency} ${expense.amount} in ${expense.category?.name ?? "Other"}`
       );
     } catch (err: any) {
       if (err?.message?.includes("not found")) {
@@ -556,6 +629,16 @@ export function registerCommands(bot: Telegraf<BotContext>) {
 
 // --- Callback query handlers ---
 export function registerActions(bot: Telegraf<BotContext>) {
+  bot.action("menu_back", async (ctx) => {
+    const chatId = getChatId(ctx);
+    if (chatId) clearPending(chatId);
+    await ctx.answerCbQuery();
+    try {
+      await ctx.editMessageReplyMarkup(undefined);
+    } catch { /* ignore */ }
+    await ctx.reply(messages.mainMenuText(), keyboards.mainMenuKeyboard);
+  });
+
   bot.action(/cat_(.+)/, async (ctx) => {
     const chatId = getChatId(ctx);
     if (!chatId) return;
@@ -567,14 +650,28 @@ export function registerActions(bot: Telegraf<BotContext>) {
     }
 
     const categoryId = ctx.match[1];
-    pendingExpenses.set(chatId, { ...pending, step: "currency", categoryId });
+    const nextStep = pending.currency ? "confirm" : "currency";
+    pendingExpenses.set(chatId, { ...pending, step: nextStep, categoryId });
 
     await ctx.answerCbQuery("Category selected");
-    await ctx.editMessageReplyMarkup(undefined); // remove category keyboard
-    await ctx.reply(
-      messages.selectCurrency(),
-      keyboards.currencyKeyboard
-    );
+    await ctx.editMessageReplyMarkup(undefined);
+
+    if (nextStep === "confirm") {
+      const user = await getOrCreateUser(ctx);
+      const categories = await ctx.services.categoryService.list(user.id);
+      const category = categories.find((c) => c.id === categoryId);
+      await ctx.reply(
+        messages.expenseConfirmPreview({
+          amount: pending.amount ?? 0,
+          categoryName: category?.name ?? "Other",
+          currency: pending.currency ?? "USD",
+          description: pending.description || undefined,
+        }),
+        keyboards.confirmKeyboard(chatId)
+      );
+    } else {
+      await ctx.reply(messages.selectCurrency(), keyboards.currencyKeyboard);
+    }
   });
 
   bot.action(/cur_(.+)/, async (ctx) => {
@@ -588,15 +685,29 @@ export function registerActions(bot: Telegraf<BotContext>) {
     }
 
     const currency = ctx.match[1];
-    pendingExpenses.set(chatId, {
-      ...pending,
-      step: "description",
-      currency,
-    });
+    // If all fields are filled, go straight to confirm
+    const nextStep = (pending.categoryId) ? "confirm" : "description";
+    pendingExpenses.set(chatId, { ...pending, step: nextStep, currency });
 
     await ctx.answerCbQuery("Currency selected");
-    await ctx.editMessageReplyMarkup(undefined); // remove currency keyboard
-    await ctx.reply(messages.enterDescription());
+    await ctx.editMessageReplyMarkup(undefined);
+
+    if (nextStep === "confirm") {
+      const user = await getOrCreateUser(ctx);
+      const categories = await ctx.services.categoryService.list(user.id);
+      const category = categories.find((c) => c.id === pending.categoryId);
+      await ctx.reply(
+        messages.expenseConfirmPreview({
+          amount: pending.amount ?? 0,
+          categoryName: category?.name ?? "Other",
+          currency,
+          description: pending.description || undefined,
+        }),
+        keyboards.confirmKeyboard(chatId)
+      );
+    } else {
+      await ctx.reply(messages.enterDescription(), keyboards.flowCancelKeyboard);
+    }
   });
 
   bot.action(/confirm_(.+)/, async (ctx) => {
@@ -661,7 +772,7 @@ export function registerActions(bot: Telegraf<BotContext>) {
       await ctx.editMessageReplyMarkup(undefined);
       await ctx.reply(
         messages.expenseDeleted(expenseId) +
-          `\nDeleted: $${expense.amount} in ${expense.category?.name ?? "Other"}`
+          `\nDeleted: ${expense.currency} ${expense.amount} in ${expense.category?.name ?? "Other"}`
       );
     } catch (err: any) {
       if (err?.message?.includes("not found")) {
@@ -706,44 +817,93 @@ export function registerActions(bot: Telegraf<BotContext>) {
     }
   });
 
-  bot.action(/day_(prev|today|next)_(.+)/, async (ctx) => {
-    const chatId = getChatId(ctx);
-    if (!chatId) return;
+  // --- Calendar callbacks ---
 
-    const direction = ctx.match[1];
-    const baseDate = ctx.match[2];
+  bot.action("day_noop", async (ctx) => {
+    await ctx.answerCbQuery();
+  });
 
-    let targetDate: string;
-    if (direction === "today") {
-      targetDate = formatDate(new Date());
-    } else if (direction === "prev") {
-      targetDate = addDays(baseDate, -1);
-    } else {
-      targetDate = addDays(baseDate, 1);
-    }
+  bot.action(/day_(\d{4}-\d{2}-\d{2})/, async (ctx) => {
+    const dateStr = ctx.match[1];
 
     try {
       const user = await getOrCreateUser(ctx);
       const stats = await ctx.services.expenseService.getDailyStats(
         user.id,
-        targetDate
+        dateStr
       );
-
       const listResult = await ctx.services.expenseService.list(user.id, {
         page: 1,
         limit: 100,
         sort: "date_desc",
-        from: `${targetDate}T00:00:00.000Z`,
-        to: `${targetDate}T23:59:59.999Z`,
+        from: dateStr,
+        to: dateStr,
       });
 
+      const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
       await ctx.answerCbQuery();
       await ctx.editMessageText(
         messages.dailySummary(stats, listResult.items),
-        keyboards.todayNavKeyboard(targetDate)
+        dayDetailKeyboard(monthKey)
       );
     } catch {
-      await ctx.answerCbQuery("Error loading stats.");
+      await ctx.answerCbQuery("Error loading day.");
+      await ctx.reply(messages.errorMessage());
+    }
+  });
+
+  bot.action(/month_prev_(\d{4}-\d{2})/, async (ctx) => {
+    const [yearStr, monthStr] = ctx.match[1].split("-");
+    let year = parseInt(yearStr, 10);
+    let month = parseInt(monthStr, 10);
+
+    month -= 1;
+    if (month < 1) {
+      month = 12;
+      year -= 1;
+    }
+
+    await navigateCalendar(ctx, year, month);
+  });
+
+  bot.action(/month_next_(\d{4}-\d{2})/, async (ctx) => {
+    const [yearStr, monthStr] = ctx.match[1].split("-");
+    let year = parseInt(yearStr, 10);
+    let month = parseInt(monthStr, 10);
+
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+
+    await navigateCalendar(ctx, year, month);
+  });
+
+  bot.action(/back_calendar_(\d{4}-\d{2})/, async (ctx) => {
+    const [yearStr, monthStr] = ctx.match[1].split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+
+    try {
+      const user = await getOrCreateUser(ctx);
+
+      const stats = await ctx.services.expenseService.getMonthlyStats(
+        user.id,
+        year,
+        month
+      );
+
+      const activeDays = getActiveDays(stats);
+      const todayStr = formatDate(new Date());
+
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(
+        calendarText(year, month),
+        buildCalendarKeyboard(year, month, activeDays, todayStr)
+      );
+    } catch {
+      await ctx.answerCbQuery("Error loading calendar.");
       await ctx.reply(messages.errorMessage());
     }
   });
@@ -752,24 +912,76 @@ export function registerActions(bot: Telegraf<BotContext>) {
   bot.on("message", async (ctx) => {
     if (!ctx.message || !("text" in ctx.message)) return;
     const text = ctx.message.text;
-    if (!text || text.startsWith("/")) return;
+    if (!text) return;
 
     const chatId = getChatId(ctx);
-    if (chatId) {
-      const pending = pendingExpenses.get(chatId);
-      if (pending) {
-        if (pending.step === "amount") {
-          await handlePendingAmount(ctx, text);
-          return;
-        }
-        if (pending.step === "description") {
-          await handlePendingDescription(ctx, text);
-          return;
-        }
-        // Other steps are handled by callbacks
-        await ctx.reply("Please use the buttons or /cancel to abort.");
+    const pending = chatId ? pendingExpenses.get(chatId) : undefined;
+
+    // Allow /skip through when in description step; block other commands
+    const isSkipCommand = text === "/skip" && pending?.step === "description";
+    if (text.startsWith("/") && !isSkipCommand) return;
+
+    if (chatId && pending) {
+      if (text === "❌ Cancel") {
+        clearPending(chatId);
+        await ctx.reply(messages.addCanceled(), keyboards.mainMenuKeyboard);
         return;
       }
+      if (pending.step === "amount") {
+        await handlePendingAmount(ctx, text);
+        return;
+      }
+      if (pending.step === "description") {
+        await handlePendingDescription(ctx, text);
+        return;
+      }
+      // Other steps are handled by callbacks
+      await ctx.reply("Please use the buttons or /cancel to abort.");
+      return;
+    }
+
+    // --- Cancel from flow keyboard (no pending) ---
+    if (text === "❌ Cancel") {
+      const cancelChatId = getChatId(ctx);
+      if (cancelChatId) clearPending(cancelChatId);
+      await ctx.reply(messages.addCanceled(), keyboards.mainMenuKeyboard);
+      return;
+    }
+
+    // --- Main menu button handler ---
+    if (text === "➕ Add Expense") {
+      await startAddFlow(ctx);
+      return;
+    }
+    if (text === "📋 Today") {
+      try {
+        await showCalendar(ctx, new Date());
+      } catch {
+        await ctx.reply(messages.errorMessage());
+      }
+      return;
+    }
+    if (text === "📊 Lifetime") {
+      try {
+        const user = await getOrCreateUser(ctx);
+        const stats = await ctx.services.expenseService.getLifetimeStats(user.id);
+        await ctx.reply(messages.lifetimeSummary(stats));
+      } catch {
+        await ctx.reply(messages.errorMessage());
+      }
+      return;
+    }
+    if (text === "⚙️ Settings") {
+      try {
+        const user = await getOrCreateUser(ctx);
+        await ctx.reply(messages.settingsInfo({
+          displayName: user.displayName,
+          telegramLinked: user.telegramLinked,
+        }), keyboards.backToMenuInline);
+      } catch {
+        await ctx.reply(messages.errorMessage());
+      }
+      return;
     }
 
     const from = ctx.message.from;
@@ -782,49 +994,23 @@ export function registerActions(bot: Telegraf<BotContext>) {
       });
 
       const categories = await ctx.services.categoryService.list(user.id);
-      let parsed = parseExpense(text, categories);
-      if (!parsed) {
-        parsed = parseFreeForm(text, categories);
+      if (categories.length === 0) {
+        await ctx.services.categoryService.seedDefaults(user.id);
+        categories.push(...(await ctx.services.categoryService.list(user.id)));
       }
 
-      if (!parsed) {
-        await ctx.reply(
-          'I couldn\'t understand that. Try /help for examples, or send "add <amount> <category> [description] [USD|COP|EUR]".'
-        );
+      const parsed = await parseWithLLM(text, categories);
+
+      if (!parsed || Number.isNaN(parsed.amount)) {
+        await startGuidedAdd(ctx, text);
         return;
       }
 
-      if (parsed.currency === null) {
-        await ctx.reply(messages.missingCurrencyHelp());
-        return;
-      }
-
-      let categoryId = parsed.categoryId;
-      if (!categoryId) {
-        const other = categories.find((c) => c.name.toLowerCase() === "other");
-        categoryId = other?.id ?? categories[0]?.id ?? null;
-      }
-
-      if (!categoryId) {
-        await ctx.reply(
-          "No category available. Please use /categories to set up categories."
-        );
-        return;
-      }
-
-      const expense = await ctx.services.expenseService.create(
-        user.id,
-        {
-          amount: parsed.amount,
-          categoryId,
-          description: parsed.description ?? undefined,
-          expenseDate: new Date().toISOString(),
-          currency: parsed.currency as "USD" | "COP" | "EUR",
-        },
-        "telegram"
+      await startLLMGuidedFlow(
+        ctx,
+        categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon ?? "📁" })),
+        parsed
       );
-
-      await ctx.reply(messages.expenseCreated(expense));
     } catch {
       await ctx.reply(messages.errorMessage());
     }

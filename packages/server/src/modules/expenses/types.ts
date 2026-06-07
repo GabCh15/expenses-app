@@ -9,6 +9,14 @@ export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type ExpenseFilters = z.infer<typeof expenseFiltersSchema>;
 
+export type CurrencyCode = "USD" | "COP" | "EUR";
+
+export interface CurrencyTotal {
+  currency: CurrencyCode;
+  total: string;
+  count: number;
+}
+
 export interface Expense {
   id: string;
   userId: string;
@@ -17,7 +25,7 @@ export interface Expense {
   description: string | null;
   expenseDate: string;
   source: "web" | "telegram";
-  currency: "USD" | "COP" | "EUR";
+  currency: CurrencyCode;
   createdAt: Date;
   updatedAt: Date;
   category: {
@@ -40,6 +48,7 @@ export interface DailyStats {
   date: string;
   total: string;
   count: number;
+  currencies: CurrencyTotal[];
 }
 
 export interface WeeklyStats {
@@ -47,6 +56,7 @@ export interface WeeklyStats {
   days: DailyStats[];
   total: string;
   count: number;
+  currencies: CurrencyTotal[];
 }
 
 export interface MonthlyStats {
@@ -55,6 +65,7 @@ export interface MonthlyStats {
   total: string;
   avgPerDay: string;
   count: number;
+  currencies: CurrencyTotal[];
 }
 
 export interface CategoryBreakdown {
@@ -65,6 +76,12 @@ export interface CategoryBreakdown {
   total: string;
   count: number;
   percentage: number;
+}
+
+export interface LifetimeStats {
+  currencies: CurrencyTotal[];
+  totalCount: number;
+  topCategories: CategoryBreakdown[];
 }
 
 export interface ExpenseRepository {
@@ -109,4 +126,5 @@ export interface ExpenseRepository {
     from: Date,
     to: Date
   ): Promise<CategoryBreakdown[]>;
+  aggregateLifetime(userId: string): Promise<LifetimeStats>;
 }

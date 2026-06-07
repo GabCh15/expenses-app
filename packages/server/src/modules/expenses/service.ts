@@ -10,6 +10,7 @@ import {
   CategoryBreakdown,
   CreateExpenseInput,
   UpdateExpenseInput,
+  LifetimeStats,
 } from "./types.js";
 
 export class ExpenseService {
@@ -129,5 +130,9 @@ export class ExpenseService {
     to: string
   ): Promise<CategoryBreakdown[]> {
     return this.repo.aggregateByCategory(userId, new Date(from), new Date(to));
+  }
+
+  async getLifetimeStats(userId: string): Promise<LifetimeStats> {
+    return this.repo.aggregateLifetime(userId);
   }
 }

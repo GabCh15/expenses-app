@@ -11,6 +11,8 @@ import {
   WeeklyStats,
   MonthlyStats,
   CategoryBreakdown,
+  CurrencyTotal,
+  LifetimeStats,
 } from "./types.js";
 
 function normalizeDate(value: Date | string): string {
@@ -200,20 +202,36 @@ export class PostgresExpenseRepository implements ExpenseRepository {
   }
 
   async aggregateDaily(userId: string, date: Date): Promise<DailyStats> {
-    const [row] = await db
+    const rows = await db
       .select({
+        currency: expenses.currency,
         total: sql<string>`sum(${expenses.amount})`,
         count: sql<number>`count(*)`,
       })
       .from(expenses)
       .where(
         and(eq(expenses.userId, userId), eq(expenses.expenseDate, date))
-      );
+      )
+      .groupBy(expenses.currency);
+
+    const currencies: CurrencyTotal[] = rows
+      .filter((r) => r.currency)
+      .map((r) => ({
+        currency: r.currency! as "USD" | "COP" | "EUR",
+        total: r.total ?? "0",
+        count: Number(r.count ?? 0),
+      }));
+
+    const grandTotal = currencies.reduce(
+      (s, c) => s + parseFloat(c.total), 0
+    );
+    const totalCount = currencies.reduce((s, c) => s + c.count, 0);
 
     return {
       date: normalizeDate(date),
-      total: row?.total ?? "0",
-      count: row?.count ?? 0,
+      total: grandTotal.toFixed(2),
+      count: totalCount,
+      currencies,
     };
   }
 
@@ -225,6 +243,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
     const rows = await db
       .select({
         date: expenses.expenseDate,
+        currency: expenses.currency,
         total: sql<string>`sum(${expenses.amount})`,
         count: sql<number>`count(*)`,
       })
@@ -236,9 +255,10 @@ export class PostgresExpenseRepository implements ExpenseRepository {
           lte(expenses.expenseDate, weekEnd)
         )
       )
-      .groupBy(expenses.expenseDate)
+      .groupBy(expenses.expenseDate, expenses.currency)
       .orderBy(asc(expenses.expenseDate));
 
+    const currencyTotals = new Map<string, { total: number; count: number }>();
     const days: DailyStats[] = [];
     let totalCount = 0;
     let totalSum = 0;
@@ -247,19 +267,51 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       const d = new Date(weekStart);
       d.setDate(d.getDate() + i);
       const dateStr = normalizeDate(d);
-      const found = rows.find((r) => normalizeDate(r.date) === dateStr);
-      const dayTotal = found?.total ?? "0";
-      const dayCount = found?.count ?? 0;
-      days.push({ date: dateStr, total: dayTotal, count: dayCount });
+      const dayRows = rows.filter((r) => normalizeDate(r.date) === dateStr);
+
+      const dayCurrencies: CurrencyTotal[] = dayRows
+        .filter((r) => r.currency)
+        .map((r) => {
+          const curr = r.currency! as "USD" | "COP" | "EUR";
+          const c = Number(r.count ?? 0);
+          const t = r.total ?? "0";
+          // accumulate global per-currency
+          const prev = currencyTotals.get(curr) ?? { total: 0, count: 0 };
+          currencyTotals.set(curr, {
+            total: prev.total + parseFloat(t),
+            count: prev.count + c,
+          });
+          return { currency: curr, total: t, count: c };
+        });
+
+      const dayTotal = dayCurrencies
+        .reduce((s, c) => s + parseFloat(c.total), 0)
+        .toFixed(2);
+      const dayCount = dayCurrencies.reduce((s, c) => s + c.count, 0);
+
+      days.push({
+        date: dateStr,
+        total: dayTotal,
+        count: dayCount,
+        currencies: dayCurrencies,
+      });
       totalCount += dayCount;
       totalSum += parseFloat(dayTotal);
     }
+
+    const currencies: CurrencyTotal[] = Array.from(currencyTotals.entries())
+      .map(([currency, data]) => ({
+        currency: currency as "USD" | "COP" | "EUR",
+        total: data.total.toFixed(2),
+        count: data.count,
+      }));
 
     return {
       weekStart: normalizeDate(weekStart),
       days,
       total: totalSum.toFixed(2),
       count: totalCount,
+      currencies,
     };
   }
 
@@ -272,6 +324,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
     const rows = await db
       .select({
         date: expenses.expenseDate,
+        currency: expenses.currency,
         total: sql<string>`sum(${expenses.amount})`,
         count: sql<number>`count(*)`,
       })
@@ -283,9 +336,10 @@ export class PostgresExpenseRepository implements ExpenseRepository {
           lte(expenses.expenseDate, monthEnd)
         )
       )
-      .groupBy(expenses.expenseDate)
+      .groupBy(expenses.expenseDate, expenses.currency)
       .orderBy(asc(expenses.expenseDate));
 
+    const currencyTotals = new Map<string, { total: number; count: number }>();
     const days: DailyStats[] = [];
     let totalCount = 0;
     let totalSum = 0;
@@ -294,10 +348,33 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       const d = new Date(monthStart);
       d.setDate(i);
       const dateStr = normalizeDate(d);
-      const found = rows.find((r) => normalizeDate(r.date) === dateStr);
-      const dayTotal = found?.total ?? "0";
-      const dayCount = found?.count ?? 0;
-      days.push({ date: dateStr, total: dayTotal, count: dayCount });
+      const dayRows = rows.filter((r) => normalizeDate(r.date) === dateStr);
+
+      const dayCurrencies: CurrencyTotal[] = dayRows
+        .filter((r) => r.currency)
+        .map((r) => {
+          const curr = r.currency! as "USD" | "COP" | "EUR";
+          const c = Number(r.count ?? 0);
+          const t = r.total ?? "0";
+          const prev = currencyTotals.get(curr) ?? { total: 0, count: 0 };
+          currencyTotals.set(curr, {
+            total: prev.total + parseFloat(t),
+            count: prev.count + c,
+          });
+          return { currency: curr, total: t, count: c };
+        });
+
+      const dayTotal = dayCurrencies
+        .reduce((s, c) => s + parseFloat(c.total), 0)
+        .toFixed(2);
+      const dayCount = dayCurrencies.reduce((s, c) => s + c.count, 0);
+
+      days.push({
+        date: dateStr,
+        total: dayTotal,
+        count: dayCount,
+        currencies: dayCurrencies,
+      });
       totalCount += dayCount;
       totalSum += parseFloat(dayTotal);
     }
@@ -305,12 +382,20 @@ export class PostgresExpenseRepository implements ExpenseRepository {
     const avgPerDay =
       daysInMonth > 0 ? (totalSum / daysInMonth).toFixed(2) : "0";
 
+    const currencies: CurrencyTotal[] = Array.from(currencyTotals.entries())
+      .map(([currency, data]) => ({
+        currency: currency as "USD" | "COP" | "EUR",
+        total: data.total.toFixed(2),
+        count: data.count,
+      }));
+
     return {
       month: normalizeDate(monthStart).slice(0, 7),
       days,
       total: totalSum.toFixed(2),
       avgPerDay,
       count: totalCount,
+      currencies,
     };
   }
 
@@ -370,5 +455,39 @@ export class PostgresExpenseRepository implements ExpenseRepository {
           grandTotal > 0 ? Math.round((rowTotal / grandTotal) * 10000) / 100 : 0,
       };
     });
+  }
+
+  async aggregateLifetime(userId: string): Promise<LifetimeStats> {
+    const currencyRows = await db
+      .select({
+        currency: expenses.currency,
+        total: sql<string>`sum(${expenses.amount})`,
+        count: sql<number>`count(*)`,
+      })
+      .from(expenses)
+      .where(eq(expenses.userId, userId))
+      .groupBy(expenses.currency);
+
+    const currencies: CurrencyTotal[] = currencyRows
+      .filter((r) => r.currency)
+      .map((r) => ({
+        currency: r.currency! as "USD" | "COP" | "EUR",
+        total: r.total ?? "0",
+        count: Number(r.count ?? 0),
+      }));
+
+    const totalCount = currencies.reduce((s, c) => s + c.count, 0);
+
+    const allCategories = await this.aggregateByCategory(
+      userId,
+      new Date("2000-01-01"),
+      new Date("2099-12-31")
+    );
+
+    const topCategories = allCategories
+      .sort((a, b) => parseFloat(b.total) - parseFloat(a.total))
+      .slice(0, 3);
+
+    return { currencies, totalCount, topCategories };
   }
 }

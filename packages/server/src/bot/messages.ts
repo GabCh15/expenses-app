@@ -1,20 +1,25 @@
-import { Expense, DailyStats, WeeklyStats, MonthlyStats } from "../modules/expenses/types.js";
+import { Expense, DailyStats, WeeklyStats, MonthlyStats, CurrencyTotal, LifetimeStats } from "../modules/expenses/types.js";
 import { Category } from "../modules/categories/types.js";
+
+function fmtAmount(amount: string | number, currency: string): string {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  return `${currency} ${num.toFixed(2)}`;
+}
+
+function fmtCurrencies(currencies: CurrencyTotal[]): string {
+  return currencies
+    .map((c) => `  ${c.currency} ${parseFloat(c.total).toFixed(2)} (${c.count})`)
+    .join("\n");
+}
 
 export function welcomeMessage(displayName: string): string {
   return (
     `Hello, ${displayName}! Welcome to Gasto.\n\n` +
-    `I can help you track expenses. Quick start:\n\n` +
-    `/add <amount> <category> [description] — Log an expense\n` +
-    `/list [N] — Recent expenses (default 10)\n` +
-    `/today — Today's summary\n` +
-    `/week — This week's summary\n` +
-    `/month — This month's summary\n` +
-    `/categories — Your categories\n` +
-    `/report [period] — Summary report\n` +
-    `/delete <id> — Delete an expense\n` +
-    `/edit <id> <field> <value> — Edit an expense\n` +
-    `/link — Link your web account\n\n` +
+    `Use the menu below:\n\n` +
+    `➕ Add Expense — Log a new expense\n` +
+    `📋 Today — Today's summary\n` +
+    `📊 Lifetime — All-time stats\n` +
+    `⚙️ Settings — Your account info\n\n` +
     `You can also send me a message like "spent 250 on lunch" and I'll try to understand it.`
   );
 }
@@ -42,7 +47,7 @@ export function helpMessage(): string {
 export function expenseCreated(expense: Expense): string {
   const category = expense.category?.name ?? "Other";
   const desc = expense.description ? ` — ${expense.description}` : "";
-  return `Expense created: $${expense.amount} in ${category}${desc}`;
+  return `Expense created: ${fmtAmount(expense.amount, expense.currency)} in ${category}${desc}`;
 }
 
 export function expenseList(expenses: Expense[], total: number): string {
@@ -52,9 +57,9 @@ export function expenseList(expenses: Expense[], total: number): string {
   const lines = expenses.map((e) => {
     const cat = e.category?.name ?? "Other";
     const desc = e.description ? ` — ${e.description}` : "";
-    return `${e.expenseDate} — $${e.amount} | ${cat}${desc}`;
+    return `${e.expenseDate} — ${fmtAmount(e.amount, e.currency)} | ${cat}${desc}`;
   });
-  lines.push(`\nTotal: $${total.toFixed(2)}`);
+  lines.push(`\nTotal items: ${expenses.length}`);
   return lines.join("\n");
 }
 
@@ -62,12 +67,16 @@ export function dailySummary(stats: DailyStats, items?: Expense[]): string {
   if (stats.count === 0) {
     return "You have no expenses today.";
   }
-  let msg = `Today: ${stats.count} expenses — Total: $${stats.total}`;
+  const totalBlock = stats.currencies.length > 0
+    ? `Total:\n${fmtCurrencies(stats.currencies)}`
+    : `Total: $${stats.total}`;
+  const dayAbbr = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(stats.date + 'T00:00:00').getDay()];
+  let msg = `📅 ${dayAbbr} ${stats.date}\n${stats.count} expenses\n${totalBlock}`;
   if (items && items.length > 0) {
     const lines = items.map((e) => {
       const cat = e.category?.name ?? "Other";
       const desc = e.description ? ` — ${e.description}` : "";
-      return `$${e.amount} | ${cat}${desc}`;
+      return `${fmtAmount(e.amount, e.currency)} | ${cat}${desc}`;
     });
     msg = `${lines.join("\n")}\n\n${msg}`;
   }
@@ -78,8 +87,17 @@ export function weeklySummary(stats: WeeklyStats): string {
   if (stats.count === 0) {
     return "No expenses this week.";
   }
-  const lines = stats.days.map((d) => `${d.date} — $${d.total} (${d.count})`);
-  lines.push(`\nWeek total: $${stats.total} — ${stats.count} expenses`);
+  const lines = stats.days
+    .filter((d) => d.count > 0)
+    .map((d) => {
+      const dayTotal = fmtCurrencies(d.currencies);
+      return `${d.date}\n${dayTotal}`;
+    });
+  if (lines.length === 0) lines.push("No expenses this week.");
+  const weekTotal = stats.currencies.length > 0
+    ? `Week total:\n${fmtCurrencies(stats.currencies)}`
+    : `Week total: $${stats.total}`;
+  lines.push(`\n${weekTotal}\n${stats.count} expenses`);
   return lines.join("\n");
 }
 
@@ -87,12 +105,35 @@ export function monthlySummary(stats: MonthlyStats): string {
   if (stats.count === 0) {
     return "No expenses this month.";
   }
+  const totalBlock = stats.currencies.length > 0
+    ? `Total:\n${fmtCurrencies(stats.currencies)}`
+    : `Total: $${stats.total}`;
   return (
     `Month: ${stats.month}\n` +
-    `Total: $${stats.total}\n` +
-    `Expenses: ${stats.count}\n` +
-    `Average per day: $${stats.avgPerDay}`
+    `${totalBlock}\n` +
+    `Expenses: ${stats.count}`
   );
+}
+
+export function lifetimeSummary(stats: LifetimeStats): string {
+  if (stats.totalCount === 0) {
+    return "You have no expenses yet.";
+  }
+
+  const currencyBlock = stats.currencies.length > 0
+    ? `Total:\n${fmtCurrencies(stats.currencies)}`
+    : "Total: $0.00";
+
+  let msg = `📊 All-Time\n${currencyBlock}\n${stats.totalCount} expenses`;
+
+  if (stats.topCategories.length > 0) {
+    const topLines = stats.topCategories.map(
+      (c) => `  ${c.categoryName ?? "Uncategorized"}: $${parseFloat(c.total).toFixed(2)}`
+    );
+    msg += `\n\nTop Categories:\n${topLines.join("\n")}`;
+  }
+
+  return msg;
 }
 
 export function categoryList(categories: Category[]): string {
@@ -130,7 +171,7 @@ export function deleteConfirmation(expense: Expense): string {
   const cat = expense.category?.name ?? "Other";
   return (
     `Delete this expense?\n\n` +
-    `$${expense.amount} in ${cat} — ${expense.description ?? "No description"}\n\n` +
+    `${fmtAmount(expense.amount, expense.currency)} in ${cat} — ${expense.description ?? "No description"}\n\n` +
     `Send /delete ${expense.id} to confirm.`
   );
 }
@@ -148,13 +189,6 @@ export function errorMessage(): string {
 
 export function notFoundMessage(): string {
   return "Expense not found.";
-}
-
-export function missingCurrencyHelp(): string {
-  return (
-    `Could not detect currency. Try: /add amount category USD` +
-    ` (or COP, EUR)`
-  );
 }
 
 export function enterAmount(): string {
@@ -210,4 +244,16 @@ export function mainMenuText(): string {
 
 export function noExpenses(): string {
   return "You have no expenses yet.";
+}
+
+export function settingsInfo(data: {
+  displayName: string;
+  telegramLinked: boolean;
+}): string {
+  const linked = data.telegramLinked ? "Yes ✅" : "No — use /link to connect";
+  return (
+    `⚙️ Settings\n\n` +
+    `Name: ${data.displayName}\n` +
+    `Web linked: ${linked}`
+  );
 }
