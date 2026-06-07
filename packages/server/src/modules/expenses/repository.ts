@@ -32,8 +32,8 @@ function mapExpenseRow(
     expenseDate: string;
     source: "web" | "telegram";
     currency: string;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt: Date | null;
+    updatedAt: Date | null;
     categoryId_joined: string | null;
     categoryName: string | null;
     categoryColor: string | null;
@@ -49,8 +49,8 @@ function mapExpenseRow(
     expenseDate: normalizeDate(row.expenseDate),
     source: row.source,
     currency: row.currency as "USD" | "COP" | "EUR",
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: row.createdAt ?? new Date(),
+    updatedAt: row.updatedAt ?? new Date(),
     category: row.categoryId_joined
       ? {
           id: row.categoryId_joined,
@@ -90,7 +90,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
         categoryId: data.categoryId,
         amount: String(data.amount),
         description: data.description ?? null,
-        expenseDate: data.expenseDate,
+        expenseDate: normalizeDate(data.expenseDate),
         source: data.source,
         currency: data.currency,
       })
