@@ -52,7 +52,6 @@ export class AuthService {
       displayName: rawUser.displayName,
       telegramLinked: !!rawUser.telegramId,
       currency: rawUser.currency ?? "ARS",
-      timezone: rawUser.timezone ?? "America/Bogota",
       createdAt: rawUser.createdAt,
     };
 
@@ -170,9 +169,5 @@ export class AuthService {
 
   async getUserById(userId: string): Promise<UserResponse | null> {
     return this.repo.findById(userId);
-  }
-
-  async setTimezone(userId: string, timezone: string): Promise<void> {
-    await this.repo.updateTimezone(userId, timezone);
   }
 }

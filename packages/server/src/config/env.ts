@@ -20,7 +20,6 @@ const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
   GITHUB_CALLBACK_URL: z.string().optional(),
   FRONTEND_URL: z.string().optional().default("http://localhost:5173"),
-  TZ: z.string().default("America/Bogota"),
 });
 
 const parsed = envSchema.safeParse(process.env);

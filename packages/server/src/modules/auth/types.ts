@@ -30,7 +30,6 @@ export interface UserResponse {
   displayName: string;
   telegramLinked: boolean;
   currency: string;
-  timezone: string;
   createdAt: Date;
 }
 
@@ -41,7 +40,6 @@ export interface UserWithPassword {
   displayName: string;
   telegramId: number | null;
   currency: string | null;
-  timezone: string | null;
   createdAt: Date;
 }
 
@@ -52,7 +50,6 @@ export interface AuthRepository {
     displayName: string;
     githubId?: string;
     telegramId?: number;
-    timezone?: string;
   }): Promise<UserResponse>;
   findByEmail(email: string): Promise<UserResponse | null>;
   findByEmailWithPassword(email: string): Promise<UserWithPassword | null>;
@@ -60,5 +57,4 @@ export interface AuthRepository {
   findByGithubId(githubId: string): Promise<UserResponse | null>;
   findByTelegramId(telegramId: number): Promise<UserResponse | null>;
   updateTelegramId(userId: string, telegramId: number): Promise<void>;
-  updateTimezone(userId: string, timezone: string): Promise<void>;
 }

@@ -11,7 +11,6 @@ function mapUser(user: typeof users.$inferSelect): UserResponse {
     displayName: user.displayName,
     telegramLinked: !!user.telegramId,
     currency: user.currency ?? "ARS",
-    timezone: user.timezone ?? "America/Bogota",
     createdAt: user.createdAt ?? new Date(),
   };
 }
@@ -28,7 +27,6 @@ export class PostgresAuthRepository implements AuthRepository {
         displayName: data.displayName,
         githubId: data.githubId ?? null,
         telegramId: data.telegramId ?? null,
-        timezone: data.timezone ?? "America/Bogota",
       })
       .returning();
 
@@ -112,13 +110,6 @@ export class PostgresAuthRepository implements AuthRepository {
     await db
       .update(users)
       .set({ telegramId, updatedAt: new Date() })
-      .where(eq(users.id, userId));
-  }
-
-  async updateTimezone(userId: string, timezone: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ timezone, updatedAt: new Date() })
       .where(eq(users.id, userId));
   }
 }
