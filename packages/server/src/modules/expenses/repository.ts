@@ -184,7 +184,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
           description: data.description,
         }),
         ...(data.expenseDate !== undefined && {
-          expenseDate: data.expenseDate,
+        expenseDate: normalizeDate(data.expenseDate),
         }),
         updatedAt: new Date(),
       })
@@ -252,8 +252,8 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       .where(
         and(
           eq(expenses.userId, userId),
-          gte(expenses.expenseDate, weekStart),
-          lte(expenses.expenseDate, weekEnd)
+          gte(expenses.expenseDate, normalizeDate(weekStart)),
+          lte(expenses.expenseDate, normalizeDate(weekEnd))
         )
       )
       .groupBy(expenses.expenseDate, expenses.currency)
@@ -333,8 +333,8 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       .where(
         and(
           eq(expenses.userId, userId),
-          gte(expenses.expenseDate, monthStart),
-          lte(expenses.expenseDate, monthEnd)
+          gte(expenses.expenseDate, normalizeDate(monthStart)),
+          lte(expenses.expenseDate, normalizeDate(monthEnd))
         )
       )
       .groupBy(expenses.expenseDate, expenses.currency)
@@ -419,8 +419,8 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       .where(
         and(
           eq(expenses.userId, userId),
-          gte(expenses.expenseDate, from),
-          lte(expenses.expenseDate, to)
+          gte(expenses.expenseDate, normalizeDate(from)),
+          lte(expenses.expenseDate, normalizeDate(to))
         )
       )
       .groupBy(
@@ -436,8 +436,8 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       .where(
         and(
           eq(expenses.userId, userId),
-          gte(expenses.expenseDate, from),
-          lte(expenses.expenseDate, to)
+          gte(expenses.expenseDate, normalizeDate(from)),
+          lte(expenses.expenseDate, normalizeDate(to))
         )
       );
 
