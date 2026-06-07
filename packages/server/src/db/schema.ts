@@ -58,6 +58,9 @@ export const categories = pgTable(
   })
 );
 
+// ⚠️ Drizzle serializes Date objects using local-time getters for date columns.
+// When comparing with eq/gte/lte, pass plain strings ("YYYY-MM-DD"), never new Date().
+// See Engram: sdd/expenses-app/patterns
 export const expenses = pgTable(
   "expenses",
   {
