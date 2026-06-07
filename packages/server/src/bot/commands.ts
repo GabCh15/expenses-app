@@ -828,6 +828,7 @@ export function registerActions(bot: Telegraf<BotContext>) {
 
     try {
       const user = await getOrCreateUser(ctx);
+      console.log(`[Calendar] day click: dateStr=${dateStr}, userId=${user.id}`);
       const stats = await ctx.services.expenseService.getDailyStats(
         user.id,
         dateStr
@@ -839,6 +840,7 @@ export function registerActions(bot: Telegraf<BotContext>) {
         from: dateStr,
         to: dateStr,
       });
+      console.log(`[Calendar] day=${dateStr} stats.count=${stats.count} list.length=${listResult.items.length} list.items=${JSON.stringify(listResult.items.map(e => ({id: e.id, date: e.expenseDate, amount: e.amount})))}`);
 
       const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
       await ctx.answerCbQuery();

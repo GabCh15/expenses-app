@@ -202,6 +202,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
   }
 
   async aggregateDaily(userId: string, date: Date): Promise<DailyStats> {
+    console.log(`[aggregateDaily] userId=${userId}, date=${date.toISOString()}, date.getDate()=${date.getDate()}`);
     const rows = await db
       .select({
         currency: expenses.currency,
@@ -213,6 +214,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
         and(eq(expenses.userId, userId), eq(expenses.expenseDate, date))
       )
       .groupBy(expenses.currency);
+    console.log(`[aggregateDaily] rows.length=${rows.length}`, JSON.stringify(rows));
 
     const currencies: CurrencyTotal[] = rows
       .filter((r) => r.currency)
