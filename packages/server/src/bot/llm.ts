@@ -7,7 +7,7 @@ interface CategoryLike {
 }
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemma-4-26b-a4b-it:free";
+const MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 
 function buildPrompt(input: string, categories: CategoryLike[]): string {
   const categoryList = categories
