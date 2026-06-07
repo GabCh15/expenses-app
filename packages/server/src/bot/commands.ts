@@ -828,7 +828,6 @@ export function registerActions(bot: Telegraf<BotContext>) {
 
     try {
       const user = await getOrCreateUser(ctx);
-      console.log(`[Calendar] day click: dateStr=${dateStr}, userId=${user.id}`);
       const stats = await ctx.services.expenseService.getDailyStats(
         user.id,
         dateStr
