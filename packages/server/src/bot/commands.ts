@@ -46,16 +46,6 @@ function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }
 
-// Today's date in local timezone as YYYY-MM-DD — avoids UTC date-shift
-// when the server runs in a timezone behind UTC (e.g. Colombia UTC-5)
-function todayLocal(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -739,7 +729,7 @@ export function registerActions(bot: Telegraf<BotContext>) {
           amount: pending.amount ?? 0,
           categoryId: pending.categoryId ?? "",
           description: pending.description ?? undefined,
-          expenseDate: todayLocal(),
+          expenseDate: new Date().toISOString(),
           currency: (pending.currency ?? "USD") as "USD" | "COP" | "EUR",
         },
         "telegram"
