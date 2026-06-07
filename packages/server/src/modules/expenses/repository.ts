@@ -201,8 +201,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
     await db.delete(expenses).where(eq(expenses.id, id));
   }
 
-  async aggregateDaily(userId: string, date: Date): Promise<DailyStats> {
-    console.log(`[aggregateDaily] userId=${userId}, date=${date.toISOString()}, date.getDate()=${date.getDate()}`);
+  async aggregateDaily(userId: string, date: string): Promise<DailyStats> {
     const rows = await db
       .select({
         currency: expenses.currency,
@@ -230,7 +229,7 @@ export class PostgresExpenseRepository implements ExpenseRepository {
     const totalCount = currencies.reduce((s, c) => s + c.count, 0);
 
     return {
-      date: normalizeDate(date),
+      date,
       total: grandTotal.toFixed(2),
       count: totalCount,
       currencies,
@@ -340,9 +339,6 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       )
       .groupBy(expenses.expenseDate, expenses.currency)
       .orderBy(asc(expenses.expenseDate));
-
-    console.log(`[aggregateMonthly] monthStart=${monthStart.toISOString()} monthEnd=${monthEnd.toISOString()} daysInMonth=${daysInMonth}`);
-    console.log(`[aggregateMonthly] rows=${JSON.stringify(rows.map(r => ({ date: r.date, currency: r.currency, count: r.count })))}`);
 
     const currencyTotals = new Map<string, { total: number; count: number }>();
     const days: DailyStats[] = [];

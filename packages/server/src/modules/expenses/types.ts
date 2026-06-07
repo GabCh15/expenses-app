@@ -109,7 +109,7 @@ export interface ExpenseRepository {
     }>
   ): Promise<Expense>;
   delete(id: string): Promise<void>;
-  aggregateDaily(userId: string, date: Date): Promise<DailyStats>;
+  aggregateDaily(userId: string, date: string): Promise<DailyStats>;
   aggregateWeekly(
     userId: string,
     weekStart: Date,

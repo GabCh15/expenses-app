@@ -98,7 +98,7 @@ export class ExpenseService {
   }
 
   async getDailyStats(userId: string, date: string): Promise<DailyStats> {
-    return this.repo.aggregateDaily(userId, new Date(date));
+    return this.repo.aggregateDaily(userId, date);
   }
 
   async getWeeklyStats(userId: string, weekStart: string): Promise<WeeklyStats> {

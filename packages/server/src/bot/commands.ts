@@ -80,8 +80,6 @@ async function showCalendar(ctx: BotContext, date: Date): Promise<void> {
   const activeDays = getActiveDays(stats);
   const todayStr = formatDate(new Date());
 
-  console.log(`[Calendar] showCalendar year=${year} month=${month} activeDays=[${[...activeDays].sort((a,b)=>a-b).join(',')}] stats.count=${stats.count} stats.days=${JSON.stringify(stats.days.filter(d => d.count > 0).map(d => d.date))}`);
-
   await ctx.reply(
     calendarText(year, month),
     buildCalendarKeyboard(year, month, activeDays, todayStr)
@@ -103,8 +101,6 @@ async function navigateCalendar(
 
   const activeDays = getActiveDays(stats);
   const todayStr = formatDate(new Date());
-
-  console.log(`[Calendar] navigateCalendar year=${year} month=${month} activeDays=[${[...activeDays].sort((a,b)=>a-b).join(',')}] stats.count=${stats.count} stats.days=${JSON.stringify(stats.days.filter(d => d.count > 0).map(d => d.date))}`);
 
   await ctx.answerCbQuery();
   await ctx.editMessageText(
@@ -844,7 +840,6 @@ export function registerActions(bot: Telegraf<BotContext>) {
         from: dateStr,
         to: dateStr,
       });
-      console.log(`[Calendar] day=${dateStr} stats.count=${stats.count} list.length=${listResult.items.length} list.items=${JSON.stringify(listResult.items.map(e => ({id: e.id, date: e.expenseDate, amount: e.amount})))}`);
 
       const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
       await ctx.answerCbQuery();
