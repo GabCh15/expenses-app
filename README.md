@@ -63,4 +63,3 @@ Start the server and visit http://localhost:3000/api/docs
 ## License
 
 MIT
-
