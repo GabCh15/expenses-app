@@ -7,7 +7,7 @@ interface CategoryLike {
 }
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.0-flash-001";
+const MODEL = "google/gemma-4-26b-a4b-it:free";
 
 function buildPrompt(input: string, categories: CategoryLike[]): string {
   const categoryList = categories
@@ -69,13 +69,23 @@ export async function parseWithLLM(
     };
 
     const text = data.choices?.[0]?.message?.content;
-    if (!text) return null;
+    if (!text) {
+      console.error("LLM: No content in response");
+      return null;
+    }
+
+    console.log("LLM raw response:", text);
 
     // Extract JSON from response (may be wrapped in markdown)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    if (!jsonMatch) {
+      console.error("LLM: No JSON found in response:", text);
+      return null;
+    }
 
+    console.log("LLM extracted JSON:", jsonMatch[0]);
     const parsed = JSON.parse(jsonMatch[0]);
+    console.log("LLM parsed:", JSON.stringify(parsed));
 
     // Robust parse: LLMs sometimes return "7000" (string) instead of 7000 (number)
     const amount =
