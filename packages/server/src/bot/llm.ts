@@ -7,7 +7,8 @@ interface CategoryLike {
 }
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "meta-llama/llama-3.3-70b-instruct:free";
+const MODEL = "google/gemini-2.5-flash-lite";
+const MAX_RETRIES = 2;
 
 function buildPrompt(input: string, categories: CategoryLike[]): string {
   const categoryList = categories
@@ -31,6 +32,45 @@ Respond with exactly this JSON shape:
 {"amount": number|null, "currency": "USD"|"COP"|"EUR"|null, "categoryId": "uuid"|null, "description": "string"|null}`;
 }
 
+async function callLLM(input: string, categories: CategoryLike[]): Promise<string | null> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: "user", content: buildPrompt(input, categories) }],
+        temperature: 0,
+        max_tokens: 200,
+      }),
+    });
+
+    if (response.ok) {
+      const data = (await response.json()) as {
+        choices: Array<{ message: { content: string } }>;
+      };
+      return data.choices?.[0]?.message?.content ?? null;
+    }
+
+    // Rate-limited — retry after the suggested delay
+    if (response.status === 429 && attempt < MAX_RETRIES) {
+      const body = await response.json().catch(() => ({})) as any;
+      const retryAfter = body?.error?.metadata?.retry_after_seconds ?? 2;
+      console.warn(`LLM: 429 rate-limited, retrying in ${retryAfter}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      await new Promise((r) => setTimeout(r, Math.min(retryAfter * 1000, 10000)));
+      continue;
+    }
+
+    console.error("OpenRouter error:", response.status, await response.text().catch(() => ""));
+    return null;
+  }
+
+  return null;
+}
+
 export async function parseWithLLM(
   input: string,
   categories: CategoryLike[]
@@ -40,41 +80,8 @@ export async function parseWithLLM(
   }
 
   try {
-    const response = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          {
-            role: "user",
-            content: buildPrompt(input, categories),
-          },
-        ],
-        temperature: 0,
-        max_tokens: 200,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error("OpenRouter error:", response.status, await response.text());
-      return null;
-    }
-
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
-    };
-
-    const text = data.choices?.[0]?.message?.content;
-    if (!text) {
-      console.error("LLM: No content in response");
-      return null;
-    }
-
-    console.log("LLM raw response:", text);
+    const text = await callLLM(input, categories);
+    if (!text) return null;
 
     // Extract JSON from response (may be wrapped in markdown)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -83,13 +90,10 @@ export async function parseWithLLM(
       return null;
     }
 
-    console.log("LLM extracted JSON:", jsonMatch[0]);
     const parsed = JSON.parse(jsonMatch[0]);
-    console.log("LLM parsed:", JSON.stringify(parsed));
 
     // Robust parse: LLMs sometimes return "7000" (string) instead of 7000 (number)
-    const amount =
-      parsed.amount != null ? Number(parsed.amount) : NaN;
+    const amount = parsed.amount != null ? Number(parsed.amount) : NaN;
 
     return {
       amount: Number.isFinite(amount) ? amount : NaN,
