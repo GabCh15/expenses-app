@@ -341,6 +341,9 @@ export class PostgresExpenseRepository implements ExpenseRepository {
       .groupBy(expenses.expenseDate, expenses.currency)
       .orderBy(asc(expenses.expenseDate));
 
+    console.log(`[aggregateMonthly] monthStart=${monthStart.toISOString()} monthEnd=${monthEnd.toISOString()} daysInMonth=${daysInMonth}`);
+    console.log(`[aggregateMonthly] rows=${JSON.stringify(rows.map(r => ({ date: r.date, currency: r.currency, count: r.count })))}`);
+
     const currencyTotals = new Map<string, { total: number; count: number }>();
     const days: DailyStats[] = [];
     let totalCount = 0;
