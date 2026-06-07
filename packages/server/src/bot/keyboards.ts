@@ -2,7 +2,7 @@ import { Markup } from "telegraf";
 
 // Main menu — shown with /start and /menu
 export const mainMenuKeyboard = Markup.keyboard([
-  ["➕ Add Expense", "📋 Today"],
+  ["➕ Add Expense", "📋 Expenses"],
   ["📊 Lifetime", "⚙️ Settings"],
 ]).resize().persistent();
 

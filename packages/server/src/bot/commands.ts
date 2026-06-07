@@ -953,7 +953,7 @@ export function registerActions(bot: Telegraf<BotContext>) {
       await startAddFlow(ctx);
       return;
     }
-    if (text === "📋 Today") {
+    if (text === "📋 Expenses") {
       try {
         await showCalendar(ctx, new Date());
       } catch {

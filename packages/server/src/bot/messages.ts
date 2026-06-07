@@ -17,7 +17,7 @@ export function welcomeMessage(displayName: string): string {
     `Hello, ${displayName}! Welcome to Expense.\n\n` +
     `Use the menu below:\n\n` +
     `➕ Add Expense — Log a new expense\n` +
-    `📋 Today — Today's summary\n` +
+    `📋 Expenses — Calendar view\n` +
     `📊 Lifetime — All-time stats\n` +
     `⚙️ Settings — Your account info\n\n` +
     `You can also send me a message like "spent 250 on lunch" and I'll try to understand it.`
@@ -31,7 +31,7 @@ export function helpMessage(): string {
     `/help — This help message\n` +
     `/add <amount> <category> [description] — Log an expense (alias: /expense)\n` +
     `/list [N] — Recent expenses (default 10, max 50)\n` +
-    `/today — Today's expenses\n` +
+    `/today — Calendar view\n` +
     `/week — Current week breakdown\n` +
     `/month — Current month overview\n` +
     `/categories — List your categories\n` +
